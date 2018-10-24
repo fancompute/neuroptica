@@ -154,5 +154,5 @@ def clementsNormalForm(U, verbose=False):
 	#     DTmn = np.linalg.tensorsolve(Tinv.conj().T, D)
 	#     print("Dprime = \n{}\n".format(Dprime))
 	#     Tlist.insert(0, Tinv.conj().T)
-	assert False, "Not finished!"
-# return Dprime, Tlist
+	# return Dprime, Tlist
+	raise NotImplementedError
