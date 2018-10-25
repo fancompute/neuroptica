@@ -33,8 +33,8 @@ inversePhaseShift = interp1d(_phaseShifts, _volts, kind='cubic')
 
 class MZI:
 	'''
-	Class simulating a programmable phase-shifting Mach-Zehnder interferometer
-	'''
+    Class simulating a programmable phase-shifting Mach-Zehnder interferometer
+    '''
 
 	def __init__(self, N, m, n, inverted=False):
 		self.N = N  # number of waveguides
@@ -84,8 +84,8 @@ class MZI:
 
 class MZIBlock:
 	'''
-	Implements an arbitrary NxN unitary transformation with Clements decomposition of MZI's
-	'''
+    Implements an arbitrary NxN unitary transformation with Clements decomposition of MZI's
+    '''
 
 	def __init__(self, N):
 		self.N = N
@@ -170,11 +170,11 @@ class MZIBlock:
 
 class OIU:
 	'''
-	Simulation of an Optical Interference Unit (OIU). This implements the matrix multiplication
-	in the synapses between a layer of two neurons. If the OIU is to simulate a NxN matrix with
-	singular value decomposition W = U D V*, then N(N-1)/2 MZI's are needed for each of U and V*,
-	and N gain elements are needed for the diagonal.
-	'''
+    Simulation of an Optical Interference Unit (OIU). This implements the matrix multiplication
+    in the synapses between a layer of two neurons. If the OIU is to simulate a NxN matrix with
+    singular value decomposition W = U D V*, then N(N-1)/2 MZI's are needed for each of U and V*,
+    and N gain elements are needed for the diagonal.
+    '''
 
 	def __init__(self, inputSize, outputSize):
 		self.Ublock = MZIBlock(outputSize)
@@ -214,8 +214,8 @@ class OIU:
 
 class NetworkLayer:
 	'''
-	Includes an OIU and an activation function
-	'''
+    Includes an OIU and an activation function
+    '''
 
 	def __init__(self, inputSize, outputSize, activation="relu"):
 		self.inputSize = inputSize
@@ -331,9 +331,9 @@ class NetworkLayer:
 
 class PhotonicNeuralNetwork:
 	'''
-	Simulation of a photonic neural network composed multiple layers, each of which includes
-	an Optical Interference Unit (synapses) and Optical Nonlinearity Unit (activation)
-	'''
+    Simulation of a photonic neural network composed multiple layers, each of which includes
+    an Optical Interference Unit (synapses) and Optical Nonlinearity Unit (activation)
+    '''
 
 	def __init__(self, layerSizes, activations):
 		self.layers = []
