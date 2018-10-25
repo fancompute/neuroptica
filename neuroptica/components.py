@@ -91,7 +91,7 @@ class MZI(OpticalComponent):
 			[1j * (np.exp(1j * theta) + 1), 1 - np.exp(1j * theta)]
 		], dtype=NP_COMPLEX)
 
-	def get_partial_transfer_matrices(self, add_uncertainties=False) -> List[np.ndarray]:
+	def get_partial_transfer_matrices(self, backward=False, add_uncertainties=False) -> List[np.ndarray]:
 
 		if add_uncertainties:
 			phi = self.phi + np.random.normal(0, self.phase_uncert)
@@ -102,7 +102,10 @@ class MZI(OpticalComponent):
 		partial_transfer_matrices = []
 		theta_shifter_matrix = np.array([[np.exp(1j * theta), 0], [0, 1]], dtype=NP_COMPLEX)
 		phi_shifter_matrix = np.array([[np.exp(1j * phi), 0], [0, 1]], dtype=NP_COMPLEX)
+
 		component_transfer_matrices = [_B, theta_shifter_matrix, _B, phi_shifter_matrix]
+		if backward:
+			component_transfer_matrices = [U.conj.T for U in reversed(component_transfer_matrices)]
 
 		T = np.eye(2, dtype=NP_COMPLEX)
 		for transfer_matrix in component_transfer_matrices:
@@ -143,7 +146,7 @@ class ComponentLayer:
 		self.N = N
 		self.components = components
 
-	def get_transfer_matrix(self):
+	def get_transfer_matrix(self) -> np.ndarray:
 		raise NotImplementedError("get_transfer_matrix() must be extended for child classes!")
 
 
@@ -154,7 +157,6 @@ class MZILayer(ComponentLayer):
 
 	def __init__(self, N: int, mzis: List[MZI]):
 		super().__init__(N, mzis)
-		self.N = N
 		self.mzis = mzis
 
 	@staticmethod
@@ -175,22 +177,23 @@ class MZILayer(ComponentLayer):
 			T[n][n] = U[1, 1]
 		return T
 
-	def get_partial_transfer_matrices(self, add_uncertainties=False) -> List[np.ndarray]:
+	def get_partial_transfer_matrices(self, backward=False, add_uncertainties=False) -> List[np.ndarray]:
 		'''Return a list of 4 partial transfer matrices for the entire MZI layer corresponding to (1) after first BS in
-		each MZI, (2) after theta shifter, (3) after second BS, and (4) after phi shifter'''
+		each MZI, (2) after theta shifter, (3) after second BS, and (4) after phi shifter. Order is reversed in the
+		backwards case'''
 
 		Ttotal = np.eye(self.N, dtype=NP_COMPLEX)
 
 		partial_transfer_matrices = []
-		all_mzi_partial_transfer_matrices = [mzi.get_partial_transfer_matrices(add_uncertainties) for mzi in self.mzis]
+		all_mzi_partials = [mzi.get_partial_transfer_matrices(backward, add_uncertainties) for mzi in self.mzis]
 
-		for depth in range(len(all_mzi_partial_transfer_matrices[0])):
+		for depth in range(len(all_mzi_partials[0])):
 			# Iterate over each sub-component at a given depth
 
 			T = np.eye(self.N, dtype=NP_COMPLEX)
 
 			for i, mzi in enumerate(self.mzis):
-				U = all_mzi_partial_transfer_matrices[i][depth]
+				U = all_mzi_partials[i][depth]
 				m, n = mzi.m, mzi.n
 				T[m][m] = U[0, 0]
 				T[m][n] = U[0, 1]
@@ -201,6 +204,23 @@ class MZILayer(ComponentLayer):
 			partial_transfer_matrices.append(Ttotal)
 
 		return partial_transfer_matrices
+
+
+class PhaseShifterLayer(ComponentLayer):
+	'''
+	Represents a column of N single-mode phase shifters
+	'''
+
+	def __init__(self, N: int, phase_shifters: List[PhaseShifter]):
+		super().__init__(N, phase_shifters)
+		self.phase_shifters = phase_shifters
+
+	def get_transfer_matrix(self, add_uncertainties=False) -> np.ndarray:
+		T = np.eye(self.N, dtype=NP_COMPLEX)
+		for phase_shifter in self.phase_shifters:
+			m = phase_shifter.m
+			T[m][m] = phase_shifter.get_transfer_matrix()[0, 0]
+		return T
 
 
 class OpticalMesh:
@@ -219,11 +239,14 @@ class OpticalMesh:
 	def get_transfer_matrix(self) -> np.ndarray:
 		return reduce(np.dot, [layer.get_transfer_matrix() for layer in self.layers])
 
-	def get_partial_transfer_matrices(self) -> List[np.ndarray]:
+	def get_partial_transfer_matrices(self, backward=False) -> List[np.ndarray]:
 		'''Return the cumulative transfer matrices following each layer in the mesh'''
 		partial_transfer_matrices = []
-		T = np.eye(self.N, dtype=NP_COMPLEX)
+		Ttotal = np.eye(self.N, dtype=NP_COMPLEX)
 		for layer in self.layers:
-			T = np.dot(layer.get_transfer_matrix(), T)  # needs to be (newT . T), left multiply
-			partial_transfer_matrices.append(T)
+			T = layer.get_transfer_matrix()
+			if backward:
+				T = T.conj().T
+			Ttotal = np.dot(T, Ttotal)  # needs to be (T . Ttotal), left multiply
+			partial_transfer_matrices.append(Ttotal)
 		return partial_transfer_matrices
