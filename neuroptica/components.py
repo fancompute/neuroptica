@@ -91,7 +91,8 @@ class MZI(OpticalComponent):
 			[1j * (np.exp(1j * theta) + 1), 1 - np.exp(1j * theta)]
 		], dtype=NP_COMPLEX)
 
-	def get_partial_transfer_matrices(self, backward=False, add_uncertainties=False) -> List[np.ndarray]:
+	def get_partial_transfer_matrices(self, backward=False, cumulative=True,
+									  add_uncertainties=False) -> List[np.ndarray]:
 
 		if add_uncertainties:
 			phi = self.phi + np.random.normal(0, self.phase_uncert)
@@ -104,14 +105,19 @@ class MZI(OpticalComponent):
 		phi_shifter_matrix = np.array([[np.exp(1j * phi), 0], [0, 1]], dtype=NP_COMPLEX)
 
 		component_transfer_matrices = [_B, theta_shifter_matrix, _B, phi_shifter_matrix]
-		if backward:
-			component_transfer_matrices = [U.conj.T for U in reversed(component_transfer_matrices)]
 
-		T = np.eye(2, dtype=NP_COMPLEX)
-		for transfer_matrix in component_transfer_matrices:
-			T = np.dot(transfer_matrix, T)
-			partial_transfer_matrices.append(T)
-		return partial_transfer_matrices
+		if backward:
+			component_transfer_matrices = [U.conj().T for U in reversed(component_transfer_matrices)]
+
+		if cumulative:
+			T = np.eye(2, dtype=NP_COMPLEX)
+			for transfer_matrix in component_transfer_matrices:
+				T = np.dot(transfer_matrix, T)
+				partial_transfer_matrices.append(T)
+
+			return partial_transfer_matrices
+		else:
+			return component_transfer_matrices
 
 
 # if self.inverted:
@@ -159,6 +165,18 @@ class MZILayer(ComponentLayer):
 		super().__init__(N, mzis)
 		self.mzis = mzis
 
+	@classmethod
+	def from_waveguide_indices(cls, N: int, waveguide_indices: List[int]):
+		'''Create an MZI layer from a list of an even number of input/output indices. Each pair of waveguides in the
+		iteration order will be assigned to an MZI'''
+		assert len(waveguide_indices) % 2 == 0 and len(waveguide_indices) <= N and \
+			   len(np.unique(waveguide_indices)) == len(waveguide_indices), \
+			"Waveguide must have an even number <= N of indices which are all unique"
+		mzis = []
+		for i in range(0, len(waveguide_indices), 2):
+			mzis.append(MZI(waveguide_indices[i], waveguide_indices[i + 1]))
+		return cls(N, mzis)
+
 	@staticmethod
 	def verify_inputs(N: int, mzis: List[MZI]):
 		'''Checks that the input MZIs are valid'''
@@ -177,7 +195,8 @@ class MZILayer(ComponentLayer):
 			T[n][n] = U[1, 1]
 		return T
 
-	def get_partial_transfer_matrices(self, backward=False, add_uncertainties=False) -> List[np.ndarray]:
+	def get_partial_transfer_matrices(self, backward=False, cumulative=True,
+									  add_uncertainties=False) -> List[np.ndarray]:
 		'''Return a list of 4 partial transfer matrices for the entire MZI layer corresponding to (1) after first BS in
 		each MZI, (2) after theta shifter, (3) after second BS, and (4) after phi shifter. Order is reversed in the
 		backwards case'''
@@ -185,11 +204,12 @@ class MZILayer(ComponentLayer):
 		Ttotal = np.eye(self.N, dtype=NP_COMPLEX)
 
 		partial_transfer_matrices = []
-		all_mzi_partials = [mzi.get_partial_transfer_matrices(backward, add_uncertainties) for mzi in self.mzis]
+		# Compute the (non-cumulative) partial transfer matrices for each MZI
+		all_mzi_partials = [mzi.get_partial_transfer_matrices(backward=backward, cumulative=False,
+															  add_uncertainties=add_uncertainties) for mzi in self.mzis]
 
 		for depth in range(len(all_mzi_partials[0])):
 			# Iterate over each sub-component at a given depth
-
 			T = np.eye(self.N, dtype=NP_COMPLEX)
 
 			for i, mzi in enumerate(self.mzis):
@@ -200,8 +220,11 @@ class MZILayer(ComponentLayer):
 				T[n][m] = U[1, 0]
 				T[n][n] = U[1, 1]
 
-			Ttotal = np.dot(T, Ttotal)
-			partial_transfer_matrices.append(Ttotal)
+			if cumulative:
+				Ttotal = np.dot(T, Ttotal)
+				partial_transfer_matrices.append(Ttotal)
+			else:
+				partial_transfer_matrices.append(T)
 
 		return partial_transfer_matrices
 
@@ -211,8 +234,11 @@ class PhaseShifterLayer(ComponentLayer):
 	Represents a column of N single-mode phase shifters
 	'''
 
-	def __init__(self, N: int, phase_shifters: List[PhaseShifter]):
+	def __init__(self, N: int, phase_shifters: List[PhaseShifter] = None):
 		super().__init__(N, phase_shifters)
+
+		if phase_shifters is None:
+			phase_shifters = [PhaseShifter(m) for m in range(N)]
 		self.phase_shifters = phase_shifters
 
 	def get_transfer_matrix(self, add_uncertainties=False) -> np.ndarray:
@@ -237,7 +263,7 @@ class OpticalMesh:
 		assert all([N == layer.N for layer in layers]), "Dimension mismatch in layers!"
 
 	def get_transfer_matrix(self) -> np.ndarray:
-		return reduce(np.dot, [layer.get_transfer_matrix() for layer in self.layers])
+		return reduce(np.dot, [layer.get_transfer_matrix() for layer in reversed(self.layers)])
 
 	def get_partial_transfer_matrices(self, backward=False) -> List[np.ndarray]:
 		'''Return the cumulative transfer matrices following each layer in the mesh'''

@@ -13,11 +13,11 @@ class Optimizer:
 	def fit(self):
 		pass
 
-	def compute_phase_shifter_fields(self, X: np.ndarray) -> List[List[np.ndarray]]:
+	def compute_phase_shifter_fields(self, X: np.ndarray, align="right") -> List[List[np.ndarray]]:
 		'''
 		Compute the foward-pass field at the end of each phase shifter in the mesh
 		:param X: input field to the mesh
-		:return: a list of (list of field values AFTER each phase shifter in a layer) for each layer
+		:return: a list of (list of field values to the left/right of each phase shifter in a layer) for each layer
 		'''
 
 		fields = []
@@ -27,24 +27,36 @@ class Optimizer:
 		for layer in self.mesh.layers:
 
 			if isinstance(layer, MZILayer):
-				partial_transfer_matrices = layer.get_partial_transfer_matrices()
-				theta_T = partial_transfer_matrices[1]
-				phi_T = partial_transfer_matrices[3]
-				fields.append([np.dot(theta_T, X_current), np.dot(phi_T, X_current)])
+				partial_transfer_matrices = layer.get_partial_transfer_matrices(backward=False, cumulative=True)
+				bs1_T, theta_T, bs2_T, phi_T = partial_transfer_matrices
+				if align == "right":
+					fields.append([np.dot(theta_T, X_current), np.dot(phi_T, X_current)])
+				elif align == "left":
+					fields.append([np.dot(bs1_T, X_current), np.dot(bs2_T, X_current)])
+				else:
+					raise ValueError('align must be "left" or "right"!')
 
 			elif isinstance(layer, PhaseShifterLayer):
-				fields.append([np.dot(layer.get_transfer_matrix(), X_current)])
+				if align == "right":
+					fields.append([np.dot(layer.get_transfer_matrix(), X_current)])
+				elif align == "left":
+					fields.append([np.copy(X_current)])
+				else:
+					raise ValueError('align must be "left" or "right"!')
+
+			else:
+				raise TypeError("Layer is not instance of MZILayer or PhaseShifterLayer!")
 
 			X_current = np.dot(layer.get_transfer_matrix(), X_current)
 
 		return fields
 
-	def compute_adjoint_phase_shifter_fields(self, delta: np.ndarray) -> List[List[np.ndarray]]:
+	def compute_adjoint_phase_shifter_fields(self, delta: np.ndarray, align="right") -> List[List[np.ndarray]]:
 		'''
 		Compute
 		:param delta: input adjoint field to the mesh
-		:return: a list of (list of field values BEFORE each phase shifter in a layer) for each layer. (Before = after
-		on foward-pass) The ordering of the list is the opposite as in compute_phase_shifter_fields()
+		:return: a list of (list of field values to the left/right of each phase shifter in a layer) for each layer
+		The ordering of the list is the opposite as in compute_phase_shifter_fields()
 		'''
 
 		adjoint_fields = []
@@ -54,13 +66,26 @@ class Optimizer:
 		for layer in reversed(self.mesh.layers):
 
 			if isinstance(layer, MZILayer):
-				partial_transfer_matrices = layer.get_partial_transfer_matrices()
-				phi_T_inv = partial_transfer_matrices[1]
-				theta_T_inv = partial_transfer_matrices[3]
-				adjoint_fields.append([np.dot(phi_T_inv, delta_current), np.dot(theta_T_inv, delta_current)])
+				partial_transfer_matrices_inv = layer.get_partial_transfer_matrices(backward=True, cumulative=True)
+				phi_T_inv, bs2_T_inv, theta_T_inv, bs1_T_inv = partial_transfer_matrices_inv
+
+				if align == "right":
+					adjoint_fields.append([np.copy(delta_current), np.dot(bs2_T_inv, delta_current)])
+				elif align == "left":
+					adjoint_fields.append([np.dot(phi_T_inv, delta_current), np.dot(theta_T_inv, delta_current)])
+				else:
+					raise ValueError('align must be "left" or "right"!')
 
 			elif isinstance(layer, PhaseShifterLayer):
-				adjoint_fields.append([np.dot(layer.get_transfer_matrix(), delta_current)])
+				if align == "right":
+					adjoint_fields.append([np.copy(delta_current)])
+				elif align == "left":
+					adjoint_fields.append([np.dot(layer.get_transfer_matrix().conj().T, delta_current)])
+				else:
+					raise ValueError('align must be "left" or "right"!')
+
+			else:
+				raise TypeError("Layer is not instance of MZILayer or PhaseShifterLayer!")
 
 			delta_current = np.dot(layer.get_transfer_matrix().conj().T, delta_current)
 
