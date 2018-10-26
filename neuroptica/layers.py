@@ -49,3 +49,29 @@ class ClementsLayer(NetworkLayer):
 
     def forward_pass(self, X):
         return np.dot(self.mesh.get_transfer_matrix(), X)
+
+
+class ReckLayer(NetworkLayer):
+    '''
+    Performs a unitary NxN operator with MZIs arranged in a Reck decomposition
+    '''
+
+    def __init__(self, N: int, include_phase_shifter_layer=True, initializer=None):
+        super().__init__(N, N, initializer=initializer)
+
+        layers = []
+        if include_phase_shifter_layer:
+            layers.append(PhaseShifterLayer(N))
+
+        mzi_limits_upper = [i for i in range(1, N)] + [i for i in range(N - 2, 1 - 1, -1)]
+        mzi_limits_lower = [(i + 1) % 2 for i in mzi_limits_upper]
+
+        print(mzi_limits_upper, mzi_limits_lower)
+
+        for start, end in zip(mzi_limits_lower, mzi_limits_upper):
+            layers.append(MZILayer.from_waveguide_indices(N, list(range(start, end + 1))))
+
+        self.mesh = OpticalMesh(N, layers)
+
+    def forward_pass(self, X):
+        return np.dot(self.mesh.get_transfer_matrix(), X)
