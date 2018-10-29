@@ -1,6 +1,7 @@
 import numpy as np
 
 from neuroptica.components import MZILayer, OpticalMesh, PhaseShifterLayer
+from neuroptica.nonlinearities import ComplexNonlinearity
 
 
 class NetworkLayer:
@@ -12,12 +13,48 @@ class NetworkLayer:
         self.input_size = input_size
         self.output_size = output_size
         self.initializer = initializer
+        self.X_prev: np.ndarray = None
+        self.Z_prev: np.ndarray = None
 
-    def forward_pass(self, X):
+    def forward_pass(self, X: np.ndarray) -> np.ndarray:
         raise NotImplementedError('forward_pass() must be overridden in child class!')
 
+    def backward_pass(self, delta: np.ndarray) -> np.ndarray:
+        raise NotImplementedError('backward_pass() must be overridden in child class!')
 
-class ClementsLayer(NetworkLayer):
+
+class Activation(NetworkLayer):
+
+    def __init__(self, nonlinearity: ComplexNonlinearity):
+        super().__init__(nonlinearity.N, nonlinearity.N)
+        self.nonlinearity = nonlinearity
+
+    def forward_pass(self, X: np.ndarray) -> np.ndarray:
+        self.X_prev = X
+        self.Z_prev = self.nonlinearity.forward_pass(X)
+        return self.Z_prev
+
+    def backward_pass(self, gamma: np.ndarray) -> np.ndarray:
+        return self.nonlinearity.backward_pass(gamma, self.Z_prev)
+
+
+class OpticalMeshNetworkLayer(NetworkLayer):
+    '''
+    Base class for any network layer consisting of an optical mesh of phase shifters and MZIs
+    '''
+
+    def __init__(self, input_size: int, output_size: int, initializer=None):
+        super().__init__(input_size, output_size, initializer=initializer)
+        self.mesh: OpticalMesh = None
+
+    def forward_pass(self, X: np.ndarray) -> np.ndarray:
+        raise NotImplementedError('forward_pass() must be overridden in child class!')
+
+    def backward_pass(self, delta: np.ndarray) -> np.ndarray:
+        raise NotImplementedError('backward_pass() must be overridden in child class!')
+
+
+class ClementsLayer(OpticalMeshNetworkLayer):
     '''
     Performs a unitary NxM operator with MZIs arranged in a Clements decomposition. If M=N then the layer can perform
     any arbitrary unitary operator
@@ -47,11 +84,16 @@ class ClementsLayer(NetworkLayer):
 
         self.mesh = OpticalMesh(N, layers)
 
-    def forward_pass(self, X):
-        return np.dot(self.mesh.get_transfer_matrix(), X)
+    def forward_pass(self, X: np.ndarray) -> np.ndarray:
+        self.X_prev = X
+        self.Z_prev = np.dot(self.mesh.get_transfer_matrix(), X)
+        return self.Z_prev
+
+    def backward_pass(self, delta: np.ndarray) -> np.ndarray:
+        return np.dot(self.mesh.get_transfer_matrix().conj().T, delta)
 
 
-class ReckLayer(NetworkLayer):
+class ReckLayer(OpticalMeshNetworkLayer):
     '''
     Performs a unitary NxN operator with MZIs arranged in a Reck decomposition
     '''
@@ -73,5 +115,10 @@ class ReckLayer(NetworkLayer):
 
         self.mesh = OpticalMesh(N, layers)
 
-    def forward_pass(self, X):
-        return np.dot(self.mesh.get_transfer_matrix(), X)
+    def forward_pass(self, X: np.ndarray) -> np.ndarray:
+        self.X_prev = X
+        self.Z_prev = np.dot(self.mesh.get_transfer_matrix(), X)
+        return self.Z_prev
+
+    def backward_pass(self, delta: np.ndarray) -> np.ndarray:
+        return np.dot(self.mesh.get_transfer_matrix().conj().T, delta)
