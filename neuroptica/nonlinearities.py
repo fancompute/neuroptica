@@ -1,13 +1,24 @@
 import numpy as np
 
+from neuroptica.settings import NP_COMPLEX
+
 
 class ComplexNonlinearity:
     '''
     Base class for a complex-valued nonlinearity
     '''
 
-    def __init__(self, N):
-        self.N = N
+    def __init__(self, N, holomorphic=False, mode="condensed"):
+        '''
+        Initialize the nonlinearity
+        :param N: dimensionality of the nonlinear function
+        :param holomorphic: whether the function is holomorphic
+        :param mode: for nonholomorphic functions, can be "full", "condensed", or "polar". Full requires that you
+        specify 4 derivatives for d{Re,Im}/d{Re,Im}, condensed requires only df/d{Re,Im}, and polar takes Z=re^iphi
+        '''
+        self.N = N  # Dimensionality of the nonlinearity
+        self.holomorphic = holomorphic  # Whether the function is holomorphic
+        self.mode = mode  # Whether to fully expand to du/da or to use df/da
 
     def forward_pass(self, X: np.ndarray) -> np.ndarray:
         '''
@@ -25,26 +36,59 @@ class ComplexNonlinearity:
         :return: backpropagated fields delta_l
         '''
         # raise NotImplementedError('backward_pass() must be overridden in child class!')
-        return gamma * self.df_dZ(Z)
+        if self.holomorphic:
+            return gamma * self.df_dZ(Z)
+
+        else:
+
+            if self.mode == "full":
+                a, b = np.real(Z), np.imag(Z)
+                return np.real(gamma) * (self.dRe_dRe(a, b) - 1j * self.dRe_dIm(a, b)) + \
+                       np.imag(gamma) * (-1 * self.dIm_dRe(a, b) + 1j * self.dIm_dIm(a, b))
+
+            elif self.mode == "condensed":
+                a, b = np.real(Z), np.imag(Z)
+                return np.real(gamma * self.df_dRe(a, b)) - 1j * np.real(gamma * self.df_dIm(a, b))
+
+            elif self.mode == "polar":
+                r, phi = np.abs(Z), np.angle(Z)
+                return np.exp(-1j * phi) * \
+                       (np.real(gamma * self.df_dr(r, phi)) - 1j * np.real(gamma * self.df_dphi(r, phi) / r))
 
     def df_dZ(self, Z: np.ndarray) -> np.ndarray:
-        '''Gives the total complex derivative of the nonlinearity with respect to the input'''
+        '''Gives the total complex derivative of the (holomorphic) nonlinearity with respect to the input'''
         raise NotImplementedError
 
-    def dRe_dRe(self, Z: np.ndarray) -> np.ndarray:
-        '''Gives the derivative of the real part of the nonlienarity w.r.t. the real part of the intput'''
+    def df_dRe(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        '''Gives the derivative of the nonlinearity with respect to the real part alpha of the input'''
         raise NotImplementedError
 
-    def dRe_dIm(self, Z: np.ndarray) -> np.ndarray:
-        '''Gives the derivative of the real part of the nonlienarity w.r.t. the imaginary part of the intput'''
+    def df_dIm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        '''Gives the derivative of the nonlinearity with respect to the imaginary part beta of the input'''
         raise NotImplementedError
 
-    def dIm_dRe(self, Z: np.ndarray) -> np.ndarray:
-        '''Gives the derivative of the imaginary part of the nonlienarity w.r.t. the real part of the intput'''
+    def dRe_dRe(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        '''Gives the derivative of the real part of the nonlienarity w.r.t. the real part of the input'''
         raise NotImplementedError
 
-    def dIm_dIm(self, Z: np.ndarray) -> np.ndarray:
-        '''Gives the derivative of the imaginary part of the nonlienarity w.r.t. the imaginary part of the intput'''
+    def dRe_dIm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        '''Gives the derivative of the real part of the nonlienarity w.r.t. the imaginary part of the input'''
+        raise NotImplementedError
+
+    def dIm_dRe(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        '''Gives the derivative of the imaginary part of the nonlienarity w.r.t. the real part of the input'''
+        raise NotImplementedError
+
+    def dIm_dIm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        '''Gives the derivative of the imaginary part of the nonlienarity w.r.t. the imaginary part of the input'''
+        raise NotImplementedError
+
+    def df_dr(self, r: np.ndarray, phi: np.ndarray) -> np.ndarray:
+        '''Gives the derivative of the nonlinearity with respect to the magnitude r of the input'''
+        raise NotImplementedError
+
+    def df_dphi(self, r: np.ndarray, phi: np.ndarray) -> np.ndarray:
+        '''Gives the derivative of the nonlinearity with respect to the angle phi of the input'''
         raise NotImplementedError
 
 
@@ -94,18 +138,83 @@ class ElectroOpticActivation(ComplexNonlinearity):
 
 
 class Abs(ComplexNonlinearity):
+    '''
+    Represents a transformation z -> |z|. This can be called in any of "full", "condensed", and "polar" modes
+    '''
+
+    def __init__(self, N, mode="polar"):
+        super().__init__(N, holomorphic=False, mode=mode)
 
     def forward_pass(self, X: np.ndarray):
         return np.abs(X)
 
-    def df_dZ(self, Z):
-        return np.ones(Z.shape)
+    def dRe_dRe(self, a: np.ndarray, b: np.ndarray):
+        return a / np.sqrt(a ** 2 + b ** 2)
+
+    def dRe_dIm(self, a: np.ndarray, b: np.ndarray):
+        return a / np.sqrt(a ** 2 + b ** 2)
+
+    def dIm_dRe(self, a: np.ndarray, b: np.ndarray):
+        return 0 * a
+
+    def dIm_dIm(self, a: np.ndarray, b: np.ndarray):
+        return 0 * b
+
+    def df_dRe(self, a: np.ndarray, b: np.ndarray):
+        return a / np.sqrt(a ** 2 + b ** 2)
+
+    def df_dIm(self, a: np.ndarray, b: np.ndarray):
+        return b / np.sqrt(a ** 2 + b ** 2)
+
+    def df_dr(self, r: np.ndarray, phi: np.ndarray):
+        return np.ones(r.shape, dtype=NP_COMPLEX)
+
+    def df_dphi(self, r: np.ndarray, phi: np.ndarray):
+        return 0 * phi
 
 
 class AbsSquared(ComplexNonlinearity):
 
+    def __init__(self, N):
+        super().__init__(N, holomorphic=False, mode="polar")
+
     def forward_pass(self, X: np.ndarray):
         return np.abs(X) ** 2
 
-    def df_dZ(self, Z):
-        return 2 * np.abs(Z)
+    def df_dr(self, r: np.ndarray, phi: np.ndarray):
+        return 2 * r
+
+    def df_dphi(self, r: np.ndarray, phi: np.ndarray):
+        return 0 * phi
+
+
+class SoftMax(ComplexNonlinearity):
+
+    def __init__(self, N):
+        super().__init__(N, holomorphic=False, mode="polar")
+
+    def forward_pass(self, X: np.ndarray):
+        Z = np.abs(X)
+        return np.exp(Z) / np.sum(np.exp(Z))
+
+    def df_dr(self, r: np.ndarray, phi: np.ndarray):
+        return np.exp(r) / np.sum(np.exp(r)) - np.exp(2 * r) / (np.sum(np.exp(r)) ** 2)
+
+    def df_dphi(self, r: np.ndarray, phi: np.ndarray):
+        return 0 * phi
+
+
+class Mask(ComplexNonlinearity):
+
+    def __init__(self, N, mask=None):
+        super().__init__(N, holomorphic=True)
+        if mask is None:
+            self.mask = np.ones(N.shape, dtype=NP_COMPLEX)
+        else:
+            self.mask = np.array(mask, dtype=NP_COMPLEX)
+
+    def forward_pass(self, X: np.ndarray):
+        return X * self.mask
+
+    def df_dZ(self, Z: np.ndarray):
+        return self.mask

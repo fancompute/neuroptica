@@ -90,7 +90,7 @@ class ClementsLayer(OpticalMeshNetworkLayer):
         return self.Z_prev
 
     def backward_pass(self, delta: np.ndarray) -> np.ndarray:
-        return np.dot(self.mesh.get_transfer_matrix().conj().T, delta)
+        return np.dot(self.mesh.get_transfer_matrix().T, delta)
 
 
 class ReckLayer(OpticalMeshNetworkLayer):
@@ -108,8 +108,6 @@ class ReckLayer(OpticalMeshNetworkLayer):
         mzi_limits_upper = [i for i in range(1, N)] + [i for i in range(N - 2, 1 - 1, -1)]
         mzi_limits_lower = [(i + 1) % 2 for i in mzi_limits_upper]
 
-        print(mzi_limits_upper, mzi_limits_lower)
-
         for start, end in zip(mzi_limits_lower, mzi_limits_upper):
             layers.append(MZILayer.from_waveguide_indices(N, list(range(start, end + 1))))
 
@@ -121,4 +119,4 @@ class ReckLayer(OpticalMeshNetworkLayer):
         return self.Z_prev
 
     def backward_pass(self, delta: np.ndarray) -> np.ndarray:
-        return np.dot(self.mesh.get_transfer_matrix().conj().T, delta)
+        return np.dot(self.mesh.get_transfer_matrix().T, delta)

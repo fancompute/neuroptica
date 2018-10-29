@@ -19,3 +19,7 @@ class NeuropticaTest(unittest.TestCase):
     @staticmethod
     def assert_allclose(x, y, rtol=1e-3, atol=1e-6):
         np.testing.assert_allclose(x, y, rtol=rtol, atol=atol)
+
+    @staticmethod
+    def random_complex_vector(N):
+        return np.array(np.exp(np.random.rand(N)) * np.random.rand(N), dtype=NP_COMPLEX)

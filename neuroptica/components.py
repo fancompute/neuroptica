@@ -108,7 +108,7 @@ class MZI(OpticalComponent):
         component_transfer_matrices = [_B, theta_shifter_matrix, _B, phi_shifter_matrix]
 
         if backward:
-            component_transfer_matrices = [U.conj().T for U in reversed(component_transfer_matrices)]
+            component_transfer_matrices = [U.T for U in reversed(component_transfer_matrices)]
 
         if cumulative:
             T = np.eye(2, dtype=NP_COMPLEX)
@@ -273,7 +273,7 @@ class OpticalMesh:
         for layer in self.layers:
             T = layer.get_transfer_matrix()
             if backward:
-                T = T.conj().T
+                T = T.T  # T.conj().T
             Ttotal = np.dot(T, Ttotal)  # needs to be (T . Ttotal), left multiply
             partial_transfer_matrices.append(Ttotal)
         return partial_transfer_matrices
@@ -345,13 +345,13 @@ class OpticalMesh:
                 if align == "right":
                     adjoint_fields.append([np.copy(delta_current)])
                 elif align == "left":
-                    adjoint_fields.append([np.dot(layer.get_transfer_matrix().conj().T, delta_current)])
+                    adjoint_fields.append([np.dot(layer.get_transfer_matrix().T, delta_current)])
                 else:
                     raise ValueError('align must be "left" or "right"!')
 
             else:
                 raise TypeError("Layer is not instance of MZILayer or PhaseShifterLayer!")
 
-            delta_current = np.dot(layer.get_transfer_matrix().conj().T, delta_current)
+            delta_current = np.dot(layer.get_transfer_matrix().T, delta_current)
 
         return adjoint_fields

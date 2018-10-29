@@ -26,7 +26,7 @@ class TestComponents(NeuropticaTest):
         partial_transfers_backward = m.get_partial_transfer_matrices(backward=True)
         for T in partial_transfers_backward:
             self.assert_unitary(T)
-        self.assert_allclose(partial_transfers_backward[-1], m.get_transfer_matrix().conj().T)
+        self.assert_allclose(partial_transfers_backward[-1], m.get_transfer_matrix().T)
 
         # Test cross case
         m.theta = 0.0
@@ -68,7 +68,7 @@ class TestComponents(NeuropticaTest):
         partial_transfers_backward = l.get_partial_transfer_matrices(backward=True)
         for T in partial_transfers_backward:
             self.assert_unitary(T)
-        self.assert_allclose(partial_transfers_backward[-1], l.get_transfer_matrix().conj().T)
+        self.assert_allclose(partial_transfers_backward[-1], l.get_transfer_matrix().T)
 
     def test_PhaseShifterLayer(self):
         '''Tests for the PhaseShifterLayer class'''
@@ -98,8 +98,9 @@ class TestComponents(NeuropticaTest):
             for T in m.get_partial_transfer_matrices(backward=True):
                 self.assert_unitary(T)
 
-            X_in = np.random.rand(N)
-            X_out = np.dot(m.get_transfer_matrix(), X_in)
+            X_in = np.random.rand(N)  # input field
+            X_out = np.dot(m.get_transfer_matrix(), X_in)  # output field
+            X_back_out = np.dot(m.get_transfer_matrix().T, X_out)  # back-reflected output field
 
             fields = m.compute_phase_shifter_fields(X_in, align="right")
             adjoint_fields = m.compute_adjoint_phase_shifter_fields(X_out, align="right")
@@ -120,12 +121,12 @@ class TestComponents(NeuropticaTest):
 
             # Check results match at end
             output_fields_adj = m.compute_adjoint_phase_shifter_fields(X_out, align="left")[-1][-1]
-            self.assert_allclose(output_fields_adj, X_in)
+            self.assert_allclose(output_fields_adj, X_back_out)
 
-            # Check that adjoint field of X_out equals regular field of X_in
-            for layer_fields, layer_fields_adj in zip(fields, reversed(adjoint_fields)):
-                for component_fields, component_fields_adj in zip(layer_fields, reversed(layer_fields_adj)):
-                    self.assert_allclose(component_fields, component_fields_adj)
+            # # Check that adjoint field of X_out equals regular field of X_in
+            # for layer_fields, layer_fields_adj in zip(fields, reversed(adjoint_fields)):
+            #     for component_fields, component_fields_adj in zip(layer_fields, reversed(layer_fields_adj)):
+            #         self.assert_allclose(component_fields, component_fields_adj)
 
 
 if __name__ == "__main__":
