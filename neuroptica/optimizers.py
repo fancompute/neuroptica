@@ -47,7 +47,11 @@ class InSituGradientDescent(Optimizer):
         :param show_progress:
         :return:
         '''
+        
         losses = []
+
+        n_features, n_samples = data.shape
+
         iterator = range(iterations)
         if show_progress: iterator = pbar(iterator)
 
@@ -55,7 +59,7 @@ class InSituGradientDescent(Optimizer):
 
             iteration_losses = []
 
-            for i in range(0, len(data), batch_size):
+            for i in range(0, n_samples, batch_size):
                 X = data[:, i:i + batch_size]
                 Y = labels[:, i:i + batch_size]
 
@@ -80,7 +84,7 @@ class InSituGradientDescent(Optimizer):
                     # Set the backprop signal for the subsequent (spatially previous) layer
                     delta_prev = gradients[layer.__name__]
 
-            losses.append(np.sum(iteration_losses) / data.shape[1])
+            losses.append(np.sum(iteration_losses) / n_samples)
 
         return losses
 
