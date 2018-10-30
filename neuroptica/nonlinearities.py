@@ -121,8 +121,8 @@ class ElectroOpticActivation(ComplexNonlinearity):
     def forward_pass(self, E_in):
         a, scR, A, Vpi, Vbias, R, Z = self.power_tapped, self.responsivity, self.mode_area, self.modulator_voltage, \
                                       self.bias_voltage, self.resistance, self.impedence
-        return E_in / (2 * np.sqrt(2)) * (1 + np.exp(-1j * np.pi * (a * scR * R * A * np.abs(E_in) ** 2) /
-                                                     (4 * Z * Vpi)) * np.exp(-1j * np.pi * Vbias / Vpi))
+        return E_in *sqrt(1 - a) / 2 * (1 + np.exp(-1j * np.pi * (a * scR * R * A * np.abs(E_in) ** 2) /
+                                                     (2 * Z * Vpi)) * np.exp(-1j * np.pi * Vbias / Vpi))
 
     def backward_pass(self, gamma: np.ndarray, Z: np.ndarray):
         return gamma * self.df_dZ(Z)
