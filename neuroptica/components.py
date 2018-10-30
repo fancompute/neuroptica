@@ -355,3 +355,28 @@ class OpticalMesh:
             delta_current = np.dot(layer.get_transfer_matrix().T, delta_current)
 
         return adjoint_fields
+
+    def adjoint_optimize(self, forward_field: np.ndarray, adjoint_field: np.ndarray, learning_rate: float):
+
+        forward_fields = self.compute_phase_shifter_fields(forward_field, align="right")
+        adjoint_fields = self.compute_adjoint_phase_shifter_fields(adjoint_field, align="right")
+
+        for layer, layer_fields, layer_fields_adj in zip(self.layers, forward_fields, reversed(adjoint_fields)):
+
+            if isinstance(layer, PhaseShifterLayer):
+                A_phi, A_phi_adj = layer_fields[0], layer_fields_adj[0]
+                dL_dphi = -1 * np.imag(A_phi * A_phi_adj)
+                for phase_shifter in layer.phase_shifters:
+                    phase_shifter.phi -= learning_rate * dL_dphi[phase_shifter.m]
+
+            elif isinstance(layer, MZILayer):
+                A_theta, A_phi = layer_fields
+                A_theta_adj, A_phi_adj = reversed(layer_fields_adj)
+                dL_dtheta = -1 * np.imag(A_theta * A_theta_adj)
+                dL_dphi = -1 * np.imag(A_phi * A_phi_adj)
+                for mzi in layer.mzis:
+                    mzi.theta -= learning_rate * dL_dtheta[mzi.m]
+                    mzi.phi -= learning_rate * dL_dphi[mzi.m]
+
+            else:
+                raise ValueError("Tunable component layer must be phase-shifting!")

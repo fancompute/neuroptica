@@ -33,13 +33,22 @@ class Sequential(BaseModel):
 
     def __init__(self, layers: List[NetworkLayer]):
         self.layers = layers
+        self.input_cache = {}
+        self.output_cache = {}
         for i, layer in enumerate(self.layers):
             layer.__name__ = "Layer{}_{}".format(i, layer.__class__.__name__)
+            self.input_cache[layer.__name__] = []
+            self.output_cache[layer.__name__] = []
+
+    def __repr__(self):
+        return "<Sequential Model: {}>".format([layer.__name__ for layer in self.layers])
 
     def forward_pass(self, X: np.ndarray) -> np.ndarray:
         X_out = X
         for layer in self.layers:
+            # self.input_cache[layer.__name__].append(X_out)
             X_out = layer.forward_pass(X_out)
+            # self.output_cache[layer.__name__].append(X_out)
         return X_out
 
     def backward_pass(self, d_loss: np.ndarray) -> Dict[str, np.ndarray]:

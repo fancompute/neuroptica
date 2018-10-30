@@ -195,26 +195,27 @@ class SoftMax(ComplexNonlinearity):
 
     def forward_pass(self, X: np.ndarray):
         Z = np.abs(X)
-        return np.exp(Z) / np.sum(np.exp(Z))
+        return np.exp(Z) / np.sum(np.exp(Z), axis=0)
 
     def df_dr(self, r: np.ndarray, phi: np.ndarray):
-        return np.exp(r) / np.sum(np.exp(r)) - np.exp(2 * r) / (np.sum(np.exp(r)) ** 2)
+        return np.exp(r) / np.sum(np.exp(r), axis=0) - np.exp(2 * r) / (np.sum(np.exp(r), axis=0) ** 2)
 
     def df_dphi(self, r: np.ndarray, phi: np.ndarray):
         return 0 * phi
 
 
 class Mask(ComplexNonlinearity):
+    '''Technically not a nonlinearity'''
 
-    def __init__(self, N, mask=None):
+    def __init__(self, N: int, mask=None):
         super().__init__(N, holomorphic=True)
         if mask is None:
-            self.mask = np.ones(N.shape, dtype=NP_COMPLEX)
+            self.mask = np.ones(N, dtype=NP_COMPLEX)
         else:
             self.mask = np.array(mask, dtype=NP_COMPLEX)
 
     def forward_pass(self, X: np.ndarray):
-        return X * self.mask
+        return (X.T * self.mask).T
 
     def df_dZ(self, Z: np.ndarray):
-        return self.mask
+        return ((Z.T * self.mask) / Z.T).T
