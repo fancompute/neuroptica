@@ -109,7 +109,7 @@ class ElectroOpticActivation(ComplexNonlinearity):
 
     def __init__(self, N, power_tapped=0.1, responsivity=0.8, mode_area=1.0, modulator_voltage=10.0, bias_voltage=10.0,
                  resistance=1000.0, impedence=120 * np.pi):
-        super().__init__(N)
+        super().__init__(N, mode="polar")
         self.power_tapped = power_tapped
         self.responsivity = responsivity
         self.mode_area = mode_area
@@ -117,24 +117,31 @@ class ElectroOpticActivation(ComplexNonlinearity):
         self.bias_voltage = bias_voltage
         self.resistance = resistance
         self.impedence = impedence
+        # Defining "feedforward phase gain" and "phase bias" parameters
+        self.gain = np.pi * power_tapped * resistance * responsivity * mode_area / 2 / modulator_voltage / impedence
+        self.theta  = np.pi * bias_voltage / modulator_voltage
 
-    def forward_pass(self, E_in):
-        a, scR, A, Vpi, Vbias, R, Z = self.power_tapped, self.responsivity, self.mode_area, self.modulator_voltage, \
-                                      self.bias_voltage, self.resistance, self.impedence
-        return E_in * np.sqrt(1 - a) / 2 * (1 + np.exp(-1j * np.pi * (a * scR * R * A * np.abs(E_in) ** 2) /
-                                                     (2 * Z * Vpi)) * np.exp(-1j * np.pi * Vbias / Vpi))
+    def forward_pass(self, Z: np.ndarray):
+        a, gain, theta = self.power_tapped, self.gain, self.theta
+        return 1/2 * np.sqrt(1 - a) * (1 + np.exp(-1j * gain * np.square(np.abs(Z))) * np.exp(-1j *theta)) * Z
 
-    def backward_pass(self, gamma: np.ndarray, Z: np.ndarray):
-        return gamma * self.df_dZ(Z)
+    def df_dZ(self, Z: np.ndarray) -> np.ndarray:
+        # This function is NOT holomorphic but this is here for fun
+        a, gain, theta = self.power_tapped, self.gain, self.theta
+        return 1/2 * np.sqrt(1 - a) * (1 + np.exp(-1j * gain * np.square(np.abs(Z))) * np.exp(-1j *theta))
 
-    def df_dZ(self, E_in):
-        a, scR, A, Vpi, Vbias, R, Z = self.power_tapped, self.responsivity, self.mode_area, self.modulator_voltage, \
-                                      self.bias_voltage, self.resistance, self.impedence
-        abs_prime_E_in = 1
-        return 1 / (2 * np.sqrt(2)) \
-               + (np.exp(-1j * np.pi * (Vbias / Vpi + np.abs(E_in) ** 2 * A * R * scR / (4e12 * Vpi * Z)))
-                  * 2e12 * Vpi * Z - 1j * np.pi * A * E_in * R * scR * np.abs(E_in) * abs_prime_E_in
-                  / 4e12 * np.sqrt(2) * Vpi * Z)
+    def df_dr(self, r: np.ndarray, phi: np.ndarray) -> np.ndarray:
+        # d/dr 1/2*sqrt(1-a)*(1 + Exp[-i*g*r^2]*Exp[-i*\theta])*r*Exp[i*p]
+        a, gain, theta = self.power_tapped, self.gain, self.theta
+        return 1/2 * np.sqrt(1 - a) * np.exp(1j * phi) * (1 + np.exp(-1j * gain * np.square(r)) * np.exp(-1j *theta)) \
+                    - 1j * np.sqrt(1 - a) * gain * np.square(r) * np.exp(-1j * gain * np.square(r)) * np.exp(-1j *theta) \
+                    * np.exp(1j * phi)
+
+    def df_dphi(self, r: np.ndarray, phi: np.ndarray) -> np.ndarray:
+        # d/dp 1/2*sqrt(1-a)*(1 + Exp[-i*g*r^2]*Exp[-i*\theta])*r*Exp[i*p]
+        a, gain, theta = self.power_tapped, self.gain, self.theta
+        return 1/2 * 1j * np.sqrt(1 - a) * np.exp(1j * phi) * r \
+                    * (1 + np.exp(-1j * gain * np.square(r)) * np.exp(-1j *theta))
 
 
 class Abs(ComplexNonlinearity):
