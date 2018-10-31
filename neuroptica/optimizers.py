@@ -1,4 +1,4 @@
-from typing import Callable, List
+from typing import Callable, List, Tuple
 
 import numpy as np
 
@@ -19,7 +19,29 @@ class Optimizer:
         self.loss_fn = loss_fn
         self.d_loss_fn = d_loss_fn
 
-    def fit(self, data: List[np.ndarray], labels: List[np.ndarray], iterations=None, epochs=None, batch_size=None):
+    @staticmethod
+    def make_batches(data: np.ndarray, labels: np.ndarray, batch_size: int,
+                     shuffle=True) -> Tuple[np.ndarray, np.ndarray]:
+        '''
+        Prepare batches of a given size from data and labels
+        :param data: features vector, shape: (n_features, n_samples)
+        :param labels: labels vector, shape: (n_label_dim, n_samples)
+        :param batch_size: size of the batch
+        :param shuffle: if true, batches will be presented in random order (the data within each batch is not shuffled)
+        :return: yields a tuple (data_batch, label_batch)
+        '''
+
+        n_features, n_samples = data.shape
+
+        batch_indices = np.arange(0, n_samples, batch_size)
+        if shuffle: np.random.shuffle(batch_indices)
+
+        for i in batch_indices:
+            X = data[:, i:i + batch_size]
+            Y = labels[:, i:i + batch_size]
+            yield X, Y
+
+    def fit(self, data: np.ndarray, labels: np.ndarray, iterations=None, epochs=None, batch_size=None):
         raise NotImplementedError("must extend Optimizer.fit() method in child classes!")
 
 
@@ -47,7 +69,7 @@ class InSituGradientDescent(Optimizer):
         :param show_progress:
         :return:
         '''
-        
+
         losses = []
 
         n_features, n_samples = data.shape
@@ -57,16 +79,14 @@ class InSituGradientDescent(Optimizer):
 
         for iteration in iterator:
 
-            iteration_losses = []
+            total_iteration_loss = 0.0
 
-            for i in range(0, n_samples, batch_size):
-                X = data[:, i:i + batch_size]
-                Y = labels[:, i:i + batch_size]
+            for X, Y in self.make_batches(data, labels, batch_size):
 
                 # Propagate the data forward
                 Y_hat = self.model.forward_pass(X)
                 d_loss = self.d_loss_fn(Y_hat, Y)
-                iteration_losses.append(self.loss_fn(Y_hat, Y))
+                total_iteration_loss += np.sum(self.loss_fn(Y_hat, Y))
 
                 # Compute the backpropagated signals for the model
                 gradients = self.model.backward_pass(d_loss)
@@ -77,14 +97,14 @@ class InSituGradientDescent(Optimizer):
 
                     if isinstance(layer, OpticalMeshNetworkLayer):
                         # Optimize the mesh using gradient descent
-                        forward_field = np.mean(layer.X_prev, axis=1)
-                        adjoint_field = np.mean(delta_prev, axis=1)
-                        layer.mesh.adjoint_optimize(forward_field, adjoint_field, learning_rate)
+                        # forward_field = np.mean(layer.X_prev, axis=1)
+                        # adjoint_field = np.mean(delta_prev, axis=1)
+                        layer.mesh.adjoint_optimize(layer.X_prev, delta_prev, learning_rate)
 
                     # Set the backprop signal for the subsequent (spatially previous) layer
                     delta_prev = gradients[layer.__name__]
 
-            losses.append(np.sum(iteration_losses) / n_samples)
+            losses.append(total_iteration_loss / n_samples)
 
         return losses
 

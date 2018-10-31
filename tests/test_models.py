@@ -24,7 +24,7 @@ class TestModels(NeuropticaTest):
                 Activation(AbsSquared(N))
             ])
             # Check that the model behaves as expected for classifying vectorized inputs
-            num_samples = 6
+            num_samples = 100
             X_data = self.random_complex_vector(N * num_samples).reshape((N, num_samples))
             Y_looped = np.array([model.forward_pass(X) for X in X_data.T]).T
             Y_vectorized = model.forward_pass(X_data)

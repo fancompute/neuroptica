@@ -356,27 +356,47 @@ class OpticalMesh:
 
         return adjoint_fields
 
-    def adjoint_optimize(self, forward_field: np.ndarray, adjoint_field: np.ndarray, learning_rate: float):
+    def adjoint_optimize(self, forward_field: np.ndarray, adjoint_field: np.ndarray, learning_rate: float,
+                         accumulator=np.mean, dry_run=False):
 
         forward_fields = self.compute_phase_shifter_fields(forward_field, align="right")
         adjoint_fields = self.compute_adjoint_phase_shifter_fields(adjoint_field, align="right")
+
+        gradient_dict = {}
 
         for layer, layer_fields, layer_fields_adj in zip(self.layers, forward_fields, reversed(adjoint_fields)):
 
             if isinstance(layer, PhaseShifterLayer):
                 A_phi, A_phi_adj = layer_fields[0], layer_fields_adj[0]
                 dL_dphi = -1 * np.imag(A_phi * A_phi_adj)
-                for phase_shifter in layer.phase_shifters:
-                    phase_shifter.phi -= learning_rate * dL_dphi[phase_shifter.m]
+                if dry_run:
+                    gradient_dict[layer] = [dL_dphi]
+
+                else:
+                    for phase_shifter in layer.phase_shifters:
+                        delta_phis = -1 * learning_rate * dL_dphi[phase_shifter.m]
+                        delta_phi = accumulator(delta_phis)
+                        phase_shifter.phi += delta_phi
 
             elif isinstance(layer, MZILayer):
                 A_theta, A_phi = layer_fields
                 A_theta_adj, A_phi_adj = reversed(layer_fields_adj)
                 dL_dtheta = -1 * np.imag(A_theta * A_theta_adj)
                 dL_dphi = -1 * np.imag(A_phi * A_phi_adj)
-                for mzi in layer.mzis:
-                    mzi.theta -= learning_rate * dL_dtheta[mzi.m]
-                    mzi.phi -= learning_rate * dL_dphi[mzi.m]
+                if dry_run:
+                    gradient_dict[layer] = [dL_dtheta, dL_dphi]
+
+                else:
+                    for mzi in layer.mzis:
+                        delta_thetas = -1 * learning_rate * dL_dtheta[mzi.m]
+                        delta_phis = -1 * learning_rate * dL_dphi[mzi.m]
+                        delta_theta = accumulator(delta_thetas)
+                        delta_phi = accumulator(delta_phis)
+                        mzi.theta += delta_theta
+                        mzi.phi += delta_phi
 
             else:
                 raise ValueError("Tunable component layer must be phase-shifting!")
+
+        if dry_run:
+            return gradient_dict

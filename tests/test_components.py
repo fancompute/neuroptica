@@ -1,9 +1,13 @@
 import unittest
 
 import numpy as np
+from scipy.stats import unitary_group
 
-from neuroptica import NP_COMPLEX
 from neuroptica.components import MZI, MZILayer, OpticalMesh, PhaseShifter, PhaseShifterLayer
+from neuroptica.layers import ClementsLayer, OpticalMeshNetworkLayer
+from neuroptica.models import Sequential
+from neuroptica.optimizers import Optimizer
+from neuroptica.settings import NP_COMPLEX
 from tests.base import NeuropticaTest
 
 
@@ -127,6 +131,114 @@ class TestComponents(NeuropticaTest):
             # for layer_fields, layer_fields_adj in zip(fields, reversed(adjoint_fields)):
             #     for component_fields, component_fields_adj in zip(layer_fields, reversed(layer_fields_adj)):
             #         self.assert_allclose(component_fields, component_fields_adj)
+
+    def test_OpticalMesh_adjoint_optimize(self):
+        for N in [4, 5]:
+            # Generate a random unitary matrix and training data
+            U = unitary_group.rvs(N)
+
+            batch_size = 4
+            n_samples = batch_size * 4
+
+            epsilon = 1e-6  # pick a very small learning rate so the derivatives will match nicely
+
+            X_all = self.random_complex_vector(N * n_samples).reshape((N, n_samples))
+            Y_all = np.dot(U, X_all)
+
+            # Make a single-layer model
+            model = Sequential([ClementsLayer(N)])
+
+            # Use mean squared cost function
+            loss_fn = lambda X, T: np.sum(1 / 2 * np.abs(X - T) ** 2, axis=0)
+            d_loss_fn = lambda X, T: np.conj(X - T)
+
+            for X, Y in Optimizer.make_batches(X_all, Y_all, batch_size):
+
+                # Propagate the data forward
+                Y_hat = model.forward_pass(X)
+                d_loss = d_loss_fn(Y_hat, Y)
+
+                # Compute the backpropagated signals for the model
+                gradients = model.backward_pass(d_loss)
+                delta_prev = d_loss  # backprop signal to send in the final layer
+
+                # Compute the foward and adjoint fields at each phase shifter in all tunable layers
+                for net_layer in reversed(model.layers):
+
+                    if isinstance(net_layer, OpticalMeshNetworkLayer):
+                        # Optimize the mesh using gradient descent
+                        gradient_dict = net_layer.mesh.adjoint_optimize(net_layer.X_prev, delta_prev, epsilon,
+                                                                        dry_run=True)
+
+                        # Manually jiggle some phase shifters and check that the loss gradients are correct
+                        for layer in net_layer.mesh.layers:
+
+                            if isinstance(layer, PhaseShifterLayer):
+
+                                dL_dphi_all = gradient_dict[layer][0]
+
+                                for phase_shifter in layer.phase_shifters:
+                                    dL_dphi_phase_shifter = dL_dphi_all[phase_shifter.m]
+                                    delta_phis = epsilon * dL_dphi_phase_shifter
+
+                                    for i, delta_phi in enumerate(delta_phis):
+                                        # dL/dphi obtained from gradient computation
+                                        dL_dphi = dL_dphi_phase_shifter[i]
+
+                                        # estimate dL/dphi numerically
+                                        L_phi = loss_fn(model.forward_pass(X), Y)[i]
+                                        phase_shifter.phi += delta_phi
+                                        L_phi_plus_dphi = loss_fn(model.forward_pass(X), Y)[i]
+                                        phase_shifter.phi -= delta_phi  # revert change
+
+                                        dL_dphi_num = (L_phi_plus_dphi - L_phi) / delta_phi
+
+                                        np.testing.assert_almost_equal(dL_dphi, dL_dphi_num, decimal=4)
+
+
+                            elif isinstance(layer, MZILayer):
+
+                                dL_dtheta_all, dL_dphi_all = gradient_dict[layer]
+
+                                for mzi in layer.mzis:
+                                    dL_dtheta_mzi = dL_dtheta_all[mzi.m]
+                                    dL_dphi_mzi = dL_dphi_all[mzi.m]
+                                    delta_thetas = epsilon * dL_dtheta_mzi
+                                    delta_phis = epsilon * dL_dphi_mzi
+
+                                    for i, delta_phi in enumerate(delta_phis):
+                                        # dL/dphi obtained from gradient computation
+                                        dL_dphi = dL_dphi_mzi[i]
+
+                                        # estimate dL/dphi numerically
+                                        L_phi = loss_fn(model.forward_pass(X), Y)[i]
+                                        mzi.phi += delta_phi
+                                        L_phi_plus_dphi = loss_fn(model.forward_pass(X), Y)[i]
+                                        mzi.phi -= delta_phi  # revert change
+
+                                        dL_dphi_num = (L_phi_plus_dphi - L_phi) / delta_phi
+
+                                        np.testing.assert_almost_equal(dL_dphi, dL_dphi_num, decimal=4)
+
+                                    for i, delta_theta in enumerate(delta_thetas):
+                                        # dL/dphi obtained from gradient computation
+                                        dL_dtheta = dL_dtheta_mzi[i]
+
+                                        # estimate dL/dphi numerically
+                                        L_theta = loss_fn(model.forward_pass(X), Y)[i]
+                                        mzi.theta += delta_theta
+                                        L_theta_plus_dtheta = loss_fn(model.forward_pass(X), Y)[i]
+                                        mzi.theta -= delta_theta  # revert change
+
+                                        dL_dtheta_num = (L_theta_plus_dtheta - L_theta) / delta_theta
+
+                                        np.testing.assert_almost_equal(dL_dtheta, dL_dtheta_num, decimal=4)
+
+                            else:
+                                raise ValueError("Tunable component layer must be phase-shifting!")
+
+                    # Set the backprop signal for the subsequent (spatially previous) layer
+                    delta_prev = gradients[net_layer.__name__]
 
 
 if __name__ == "__main__":
