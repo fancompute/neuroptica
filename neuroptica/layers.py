@@ -13,8 +13,8 @@ class NetworkLayer:
         self.input_size = input_size
         self.output_size = output_size
         self.initializer = initializer
-        self.X_prev: np.ndarray = None
-        self.Z_prev: np.ndarray = None
+        self.input_prev: np.ndarray = None
+        self.input_prev: np.ndarray = None
 
     def forward_pass(self, X: np.ndarray) -> np.ndarray:
         raise NotImplementedError('forward_pass() must be overridden in child class!')
@@ -24,18 +24,22 @@ class NetworkLayer:
 
 
 class Activation(NetworkLayer):
+    '''
+    Represents a (nonlinear) activation layer. Note that in this layer, the usage of X and Z are reversed! (Z is input,
+    X is output, input for next linear layer)
+    '''
 
     def __init__(self, nonlinearity: ComplexNonlinearity):
         super().__init__(nonlinearity.N, nonlinearity.N)
         self.nonlinearity = nonlinearity
 
-    def forward_pass(self, X: np.ndarray) -> np.ndarray:
-        self.X_prev = X
-        self.Z_prev = self.nonlinearity.forward_pass(X)
-        return self.Z_prev
+    def forward_pass(self, Z: np.ndarray) -> np.ndarray:
+        self.input_prev = Z
+        self.output_prev = self.nonlinearity.forward_pass(Z)
+        return self.output_prev
 
     def backward_pass(self, gamma: np.ndarray) -> np.ndarray:
-        return self.nonlinearity.backward_pass(gamma, self.Z_prev)
+        return self.nonlinearity.backward_pass(gamma, self.input_prev)
 
 
 class OpticalMeshNetworkLayer(NetworkLayer):
@@ -85,9 +89,9 @@ class ClementsLayer(OpticalMeshNetworkLayer):
         self.mesh = OpticalMesh(N, layers)
 
     def forward_pass(self, X: np.ndarray) -> np.ndarray:
-        self.X_prev = X
-        self.Z_prev = np.dot(self.mesh.get_transfer_matrix(), X)
-        return self.Z_prev
+        self.input_prev = X
+        self.output_prev = np.dot(self.mesh.get_transfer_matrix(), X)
+        return self.output_prev
 
     def backward_pass(self, delta: np.ndarray) -> np.ndarray:
         return np.dot(self.mesh.get_transfer_matrix().T, delta)
@@ -114,9 +118,9 @@ class ReckLayer(OpticalMeshNetworkLayer):
         self.mesh = OpticalMesh(N, layers)
 
     def forward_pass(self, X: np.ndarray) -> np.ndarray:
-        self.X_prev = X
-        self.Z_prev = np.dot(self.mesh.get_transfer_matrix(), X)
-        return self.Z_prev
+        self.input_prev = X
+        self.output_prev = np.dot(self.mesh.get_transfer_matrix(), X)
+        return self.output_prev
 
     def backward_pass(self, delta: np.ndarray) -> np.ndarray:
         return np.dot(self.mesh.get_transfer_matrix().T, delta)

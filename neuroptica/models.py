@@ -58,7 +58,7 @@ class Sequential(BaseModel):
         :return: dictionary of {layer: gradients}
         '''
         backprop_signal = d_loss
-        gradients = {}
+        gradients = {"output": d_loss}
         for layer in reversed(self.layers):
             backprop_signal = layer.backward_pass(backprop_signal)
             gradients[layer.__name__] = backprop_signal

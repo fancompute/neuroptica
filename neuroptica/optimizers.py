@@ -1,8 +1,9 @@
-from typing import Callable, List, Tuple
+from typing import Callable, List, Tuple, Type
 
 import numpy as np
 
 from neuroptica.layers import OpticalMeshNetworkLayer
+from neuroptica.losses import Loss
 from neuroptica.models import Sequential
 from neuroptica.utils import pbar
 
@@ -12,12 +13,9 @@ class Optimizer:
     Base class for an optimizer
     '''
 
-    def __init__(self, model: Sequential,
-                 loss_fn: Callable[[np.ndarray, np.ndarray], np.ndarray],
-                 d_loss_fn: Callable[[np.ndarray, np.ndarray], np.ndarray]):
+    def __init__(self, model: Sequential, loss: Type[Loss]):
         self.model = model
-        self.loss_fn = loss_fn
-        self.d_loss_fn = d_loss_fn
+        self.loss = loss
 
     @staticmethod
     def make_batches(data: np.ndarray, labels: np.ndarray, batch_size: int,
@@ -85,8 +83,8 @@ class InSituGradientDescent(Optimizer):
 
                 # Propagate the data forward
                 Y_hat = self.model.forward_pass(X)
-                d_loss = self.d_loss_fn(Y_hat, Y)
-                total_iteration_loss += np.sum(self.loss_fn(Y_hat, Y))
+                d_loss = self.loss.dL(Y_hat, Y)
+                total_iteration_loss += np.sum(self.loss.L(Y_hat, Y))
 
                 # Compute the backpropagated signals for the model
                 gradients = self.model.backward_pass(d_loss)
@@ -97,14 +95,18 @@ class InSituGradientDescent(Optimizer):
 
                     if isinstance(layer, OpticalMeshNetworkLayer):
                         # Optimize the mesh using gradient descent
-                        # forward_field = np.mean(layer.X_prev, axis=1)
+                        # forward_field = np.mean(layer.input_prev, axis=1)
                         # adjoint_field = np.mean(delta_prev, axis=1)
-                        layer.mesh.adjoint_optimize(layer.X_prev, delta_prev, learning_rate)
+                        layer.mesh.adjoint_optimize(layer.input_prev, delta_prev, learning_rate)
 
                     # Set the backprop signal for the subsequent (spatially previous) layer
                     delta_prev = gradients[layer.__name__]
 
-            losses.append(total_iteration_loss / n_samples)
+            total_iteration_loss /= n_samples
+            losses.append(total_iteration_loss)
+
+            if show_progress:
+                iterator.set_description("ℒ = {:.2e}".format(total_iteration_loss), refresh=False)
 
         return losses
 
@@ -155,7 +157,7 @@ class InSituAdam:
 
                     if isinstance(layer, OpticalMeshNetworkLayer):
                         # Optimize the mesh using gradient descent
-                        layer.mesh.adjoint_optimize(layer.X_prev, delta_prev, self.learning_rate)
+                        layer.mesh.adjoint_optimize(layer.input_prev, delta_prev, self.learning_rate)
 
                     # Set the backprop signal for the subsequent (spatially previous) layer
                     delta_prev = gradients[layer.__name__]

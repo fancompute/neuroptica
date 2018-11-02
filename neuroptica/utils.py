@@ -64,3 +64,21 @@ def generate_diagonal_planar_dataset(N=400, noise_ratio=0.05, seed=None):
         else:
             labels[i][1] = 1
     return points, labels
+
+
+def generate_separable_planar_dataset(N=100, noise_ratio=0.0, seed=None):
+    '''
+    Generates a ring of points with one-hot labeling
+    :param N: number of points to generate
+    :param noise_ratio: multiplier for gaussian noise on radius
+    :return: points, labels
+    '''
+    np.random.seed(seed)
+    points = 2 * (np.random.rand(2 * N).reshape((N, 2))) - 1
+    labels = np.zeros((N, 2))
+    for i, pt in enumerate(points):
+        if pt[0] + pt[1] + noise_ratio * np.random.randn() < 0:
+            labels[i][0] = 1
+        else:
+            labels[i][1] = 1
+    return points, labels

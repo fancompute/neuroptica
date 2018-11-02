@@ -53,7 +53,7 @@ class ComplexNonlinearity:
             elif self.mode == "polar":
                 r, phi = np.abs(Z), np.angle(Z)
                 return np.exp(-1j * phi) * \
-                       (np.real(gamma * self.df_dr(r, phi)) - 1j * np.real(gamma * self.df_dphi(r, phi) / r))
+                       (np.real(gamma * self.df_dr(r, phi)) - 1j / r * np.real(gamma * self.df_dphi(r, phi)))
 
     def df_dZ(self, Z: np.ndarray) -> np.ndarray:
         '''Gives the total complex derivative of the (holomorphic) nonlinearity with respect to the input'''
@@ -122,7 +122,7 @@ class ElectroOpticActivation(ComplexNonlinearity):
         a, scR, A, Vpi, Vbias, R, Z = self.power_tapped, self.responsivity, self.mode_area, self.modulator_voltage, \
                                       self.bias_voltage, self.resistance, self.impedence
         return E_in * np.sqrt(1 - a) / 2 * (1 + np.exp(-1j * np.pi * (a * scR * R * A * np.abs(E_in) ** 2) /
-                                                     (2 * Z * Vpi)) * np.exp(-1j * np.pi * Vbias / Vpi))
+                                                       (2 * Z * Vpi)) * np.exp(-1j * np.pi * Vbias / Vpi))
 
     def backward_pass(self, gamma: np.ndarray, Z: np.ndarray):
         return gamma * self.df_dZ(Z)
@@ -152,7 +152,7 @@ class Abs(ComplexNonlinearity):
         return a / np.sqrt(a ** 2 + b ** 2)
 
     def dRe_dIm(self, a: np.ndarray, b: np.ndarray):
-        return a / np.sqrt(a ** 2 + b ** 2)
+        return b / np.sqrt(a ** 2 + b ** 2)
 
     def dIm_dRe(self, a: np.ndarray, b: np.ndarray):
         return 0 * a
@@ -198,7 +198,9 @@ class SoftMax(ComplexNonlinearity):
         return np.exp(Z) / np.sum(np.exp(Z), axis=0)
 
     def df_dr(self, r: np.ndarray, phi: np.ndarray):
-        return np.exp(r) / np.sum(np.exp(r), axis=0) - np.exp(2 * r) / (np.sum(np.exp(r), axis=0) ** 2)
+        # return np.exp(r) / np.sum(np.exp(r), axis=0) - np.exp(2 * r) / (np.sum(np.exp(r), axis=0) ** 2)
+        softmax = np.exp(r) / np.sum(np.exp(r), axis=0)
+        return softmax * (1 - softmax)
 
     def df_dphi(self, r: np.ndarray, phi: np.ndarray):
         return 0 * phi

@@ -1,8 +1,13 @@
 import unittest
 from itertools import combinations
 
-from neuroptica.nonlinearities import Abs
+from neuroptica.layers import Activation, ClementsLayer
+from neuroptica.losses import MeanSquaredError
+from neuroptica.models import Sequential
+from neuroptica.nonlinearities import *
+from neuroptica.optimizers import Optimizer
 from tests.base import NeuropticaTest
+from tests.test_models import TestModels
 
 
 class TestNonlinearities(NeuropticaTest):
@@ -23,6 +28,43 @@ class TestNonlinearities(NeuropticaTest):
             # Check that backprop results are the same for each mode
             for result1, result2 in combinations(backward_results, 2):
                 self.assert_allclose(result1, result1)
+
+    def test_OpticalMesh_adjoint_optimize(self):
+        for N in [4, 5]:
+            nonlinearities = [Abs(N, mode="full"),
+                              AbsSquared(N),
+                              SoftMax(N),
+                              Mask(N, mask=np.random.rand(N))]
+            for nonlinearity in nonlinearities:
+
+                print("Testing nonlinearity {}".format(nonlinearity))
+
+                batch_size = 1
+                n_samples = batch_size * 4
+
+                X_all = (2 * np.random.rand(N * n_samples) - 1).reshape((N, n_samples))
+                Y_all = np.abs(X_all)
+
+                # Make a single-layer model
+                model = Sequential([ClementsLayer(N),
+                                    Activation(nonlinearity)
+                                    ])
+
+                # Use mean squared cost function
+                loss = MeanSquaredError
+
+                for X, Y in Optimizer.make_batches(X_all, Y_all, batch_size):
+                    # Propagate the data forward
+                    Y_hat = model.forward_pass(X)
+                    d_loss = loss.dL(Y_hat, Y)
+
+                    # Compute the backpropagated signals for the model
+                    gradients = model.backward_pass(d_loss)
+
+                    TestModels.verify_model_gradients(model, X, Y, loss.L, gradients, epsilon=1e-6)
+
+
+
 
 
 if __name__ == "__main__":

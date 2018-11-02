@@ -1,25 +1,21 @@
+import matplotlib.pyplot as plt
 import numpy as np
 
 import neuroptica as neu
 
-
-def msc_loss(yhat, y):
-    return np.sum(1 / 2 * (yhat - y) ** 2)
-
-
-def d_msc_loss(yhat, y):
-    return yhat - y
-
-
-def one_hot_cross_entropy(y_pred, y_true):
-    return np.sum(-1 * y_true * np.log(y_pred))
-
-
-def d_one_hot_cross_entropy(y_pred, y_true):
-    return -1 * y_true / y_pred
-
-
 if __name__ == "__main__":
+
+    # X, Y = neu.utils.generate_ring_planar_dataset()
+    # X, Y = neu.utils.generate_diagonal_planar_dataset()
+    X, Y = neu.utils.generate_separable_planar_dataset()
+
+    labels = np.array([0 if yi[0] > yi[1] else 1 for yi in Y]).flatten()
+    plt.figure(figsize=(6, 6))
+    plt.scatter((X.T)[0, :], (X.T)[1, :], c=labels, cmap=plt.cm.Spectral)
+    plt.colorbar()
+    plt.show()
+
+
     N = 4
     mask = np.ones(N) * 1e-5
     mask[0:2] = 1
@@ -41,10 +37,8 @@ if __name__ == "__main__":
         neu.Activation(neu.nonlinearities.SoftMax(N))
     ])
 
-    X, Y = neu.utils.generate_ring_planar_dataset()
-
     P0 = 10
-    X_formatted = np.pad(X, (0, N - 2), mode="constant")
+    X_formatted = np.array(np.pad(X, (0, N - 2), mode="constant"))
     for i, x in enumerate(X_formatted):
         X_formatted[i][2] = np.sqrt(P0 - np.sum(x ** 2))
     Y_formatted = np.pad(Y, (0, N - 2), mode="constant")
@@ -52,5 +46,5 @@ if __name__ == "__main__":
     Y_formatted = Y_formatted.T
 
     # optimizer = neu.InSituGradientDescent(model, one_hot_cross_entropy, d_one_hot_cross_entropy)
-    optimizer = neu.InSituGradientDescent(model, msc_loss, d_msc_loss)
-    losses = optimizer.fit(X_formatted, Y_formatted, iterations=250, learning_rate=-0.01, batch_size=32)
+    optimizer = neu.InSituGradientDescent(model, neu.losses.MeanSquaredError)
+    losses = optimizer.fit(X_formatted, Y_formatted, iterations=2000, learning_rate=0.001, batch_size=32)
