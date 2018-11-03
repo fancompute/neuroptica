@@ -36,13 +36,22 @@ class MeanSquaredError(Loss):
 
 
 class CategoricalCrossEntropy(Loss):
+    '''
+    Represents categorical cross entropy with a softmax layer implicitly applied to the outputs
+    '''
 
     @staticmethod
     def L(X: np.ndarray, T: np.ndarray) -> np.ndarray:
-        X_clip = np.clip(X, 1e-7, 1 - 1e-7)
-        return np.sum(T * -np.log(X_clip), axis=0)
+        X_abs = np.abs(X)
+        X_softmax = np.exp(X_abs) / np.sum(np.exp(X_abs), axis=0)
+        X_clip = np.clip(X_softmax, 1e-7, 1 - 1e-7)
+        return -np.sum(T * np.log(X_clip), axis=0)
 
     @staticmethod
     def dL(X: np.ndarray, T: np.ndarray) -> np.ndarray:
-        X_clip = np.clip(X, 1e-7, 1 - 1e-7)
-        return T / X_clip
+        no_softmax = False  # todo
+        if no_softmax:
+            X_clip = np.clip(X, 1e-7, 1 - 1e-7)
+            return -T / X_clip
+        else:
+            return np.conj(X - T)

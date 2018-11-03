@@ -3,7 +3,34 @@ import numpy as np
 from neuroptica.settings import NP_COMPLEX
 
 
-class ComplexNonlinearity:
+class Nonlinearity:
+
+    def __init__(self, N):
+        '''
+        Initialize the nonlinearity
+        :param N: dimensionality of the nonlinear function
+        '''
+        self.N = N  # Dimensionality of the nonlinearity
+
+    def forward_pass(self, X: np.ndarray) -> np.ndarray:
+        '''
+        Transform the input fields in the forward direction
+        :param X: input fields
+        :return: transformed inputs
+        '''
+        raise NotImplementedError('forward_pass() must be overridden in child class!')
+
+    def backward_pass(self, gamma: np.ndarray, Z: np.ndarray) -> np.ndarray:
+        '''
+        Backpropagate a signal through the layer
+        :param gamma: backpropagated signal from the (l+1)th layer
+        :param Z: output fields from the forward_pass() run
+        :return: backpropagated fields delta_l
+        '''
+        raise NotImplementedError('backward_pass() must be overridden in child class!')
+
+
+class ComplexNonlinearity(Nonlinearity):
     '''
     Base class for a complex-valued nonlinearity
     '''
@@ -16,7 +43,7 @@ class ComplexNonlinearity:
         :param mode: for nonholomorphic functions, can be "full", "condensed", or "polar". Full requires that you
         specify 4 derivatives for d{Re,Im}/d{Re,Im}, condensed requires only df/d{Re,Im}, and polar takes Z=re^iphi
         '''
-        self.N = N  # Dimensionality of the nonlinearity
+        super().__init__(N)
         self.holomorphic = holomorphic  # Whether the function is holomorphic
         self.mode = mode  # Whether to fully expand to du/da or to use df/da
 
@@ -188,22 +215,38 @@ class AbsSquared(ComplexNonlinearity):
         return 0 * phi
 
 
-class SoftMax(ComplexNonlinearity):
-
-    def __init__(self, N):
-        super().__init__(N, holomorphic=False, mode="polar")
+class SoftMax(Nonlinearity):
 
     def forward_pass(self, X: np.ndarray):
-        Z = np.abs(X)
-        return np.exp(Z) / np.sum(np.exp(Z), axis=0)
+        X = np.abs(X)
+        return np.exp(X) / np.sum(np.exp(X), axis=0)
 
-    def df_dr(self, r: np.ndarray, phi: np.ndarray):
-        # return np.exp(r) / np.sum(np.exp(r), axis=0) - np.exp(2 * r) / (np.sum(np.exp(r), axis=0) ** 2)
-        softmax = np.exp(r) / np.sum(np.exp(r), axis=0)
-        return softmax * (1 - softmax)
+    def backward_pass(self, gamma: np.ndarray, Z: np.ndarray):
+        Z = np.abs(Z)
+        softmax = np.exp(Z) / np.sum(np.exp(Z), axis=0)
 
-    def df_dphi(self, r: np.ndarray, phi: np.ndarray):
-        return 0 * phi
+        n_features, n_samples = Z.shape
+        total_derivs = np.zeros(Z.shape)
+
+        for i in range(n_samples):
+            s = softmax[:, i].reshape(-1, 1)
+            jac = np.diagflat(s) - np.dot(s, s.T)
+            total_derivs[:, i] = jac.T @ gamma[:, i]
+
+        # todo: why is this not working?
+        return total_derivs
+
+    # def df_dr(self, r: np.ndarray, phi: np.ndarray):
+    #     # return np.exp(r) / np.sum(np.exp(r), axis=0) - np.exp(2 * r) / (np.sum(np.exp(r), axis=0) ** 2)
+    #     expsum = np.sum(np.exp(r), axis=0)
+    #
+    #     # softmax = np.exp(r) / np.sum(np.exp(r), axis=0)
+    #     # return softmax * (1 - softmax)
+    #     ret = np.exp(r) * (expsum - np.exp(r)) / expsum ** 2
+    #     return ret
+    #
+    # def df_dphi(self, r: np.ndarray, phi: np.ndarray):
+    #     return 0 * phi
 
 
 class Mask(ComplexNonlinearity):
@@ -220,4 +263,6 @@ class Mask(ComplexNonlinearity):
         return (X.T * self.mask).T
 
     def df_dZ(self, Z: np.ndarray):
-        return ((Z.T * self.mask) / Z.T).T
+        z_broadcaster = np.ones(Z.shape)
+        return (z_broadcaster.T * self.mask).T
+        # return ((Z.T * self.mask) / Z.T).T

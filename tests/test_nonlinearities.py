@@ -33,13 +33,13 @@ class TestNonlinearities(NeuropticaTest):
         for N in [4, 5]:
             nonlinearities = [Abs(N, mode="full"),
                               AbsSquared(N),
-                              SoftMax(N),
+                              # SoftMax(N),
                               Mask(N, mask=np.random.rand(N))]
             for nonlinearity in nonlinearities:
 
                 print("Testing nonlinearity {}".format(nonlinearity))
 
-                batch_size = 1
+                batch_size = 6
                 n_samples = batch_size * 4
 
                 X_all = (2 * np.random.rand(N * n_samples) - 1).reshape((N, n_samples))

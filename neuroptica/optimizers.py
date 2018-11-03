@@ -1,4 +1,4 @@
-from typing import Callable, List, Tuple, Type
+from typing import Tuple, Type
 
 import numpy as np
 
@@ -111,42 +111,55 @@ class InSituGradientDescent(Optimizer):
         return losses
 
 
-class InSituAdam:
+class InSituAdam(Optimizer):
     '''
     On-chip training with in-situ backpropagation using adjoint field method and adam optimizer
     '''
 
     def __init__(self,
                  model: Sequential,
-                 loss_fn: Callable[[np.ndarray, np.ndarray], np.ndarray],
-                 d_loss_fn: Callable[[np.ndarray, np.ndarray], np.ndarray],
+                 loss: Type[Loss],
                  step_size=0.01,
                  beta1=0.9,
                  beta2=0.99,
                  epsilon=1e-8):
-        self.model = model
-        self.loss_fn = loss_fn
-        self.d_loss_fn = d_loss_fn
+        super().__init__(model, loss)
         self.step_size = step_size
         self.beta1 = beta1
         self.beta2 = beta2
         self.epsilon = epsilon
+        self.m = np.zeros()
 
-    def fit(self, data: List[np.ndarray], labels: List[np.ndarray], iterations=1000, epochs=None, batch_size=None,
-            show_progress=True):
+    def fit(self, data: np.ndarray, labels: np.ndarray, iterations=1000, learning_rate=0.01,
+            batch_size=32, show_progress=True):
+        '''
+        Fit the model to the labeled data
+        :param data: features vector, shape: (n_features, n_samples)
+        :param labels: labels vector, shape: (n_label_dim, n_samples)
+        :param iterations:
+        :param learning_rate:
+        :param batch_size:
+        :param show_progress:
+        :return:
+        '''
+
         losses = []
+
+        n_features, n_samples = data.shape
+
         iterator = range(iterations)
         if show_progress: iterator = pbar(iterator)
 
         for iteration in iterator:
 
-            iteration_losses = []
-            for X, Y in zip(data, labels):
+            total_iteration_loss = 0.0
+
+            for X, Y in self.make_batches(data, labels, batch_size):
 
                 # Propagate the data forward
                 Y_hat = self.model.forward_pass(X)
-                d_loss = self.d_loss_fn(Y_hat, Y)
-                iteration_losses.append(self.loss_fn(Y_hat, Y))
+                d_loss = self.loss.dL(Y_hat, Y)
+                total_iteration_loss += np.sum(self.loss.L(Y_hat, Y))
 
                 # Compute the backpropagated signals for the model
                 gradients = self.model.backward_pass(d_loss)
@@ -157,11 +170,17 @@ class InSituAdam:
 
                     if isinstance(layer, OpticalMeshNetworkLayer):
                         # Optimize the mesh using gradient descent
-                        layer.mesh.adjoint_optimize(layer.input_prev, delta_prev, self.learning_rate)
+                        # forward_field = np.mean(layer.input_prev, axis=1)
+                        # adjoint_field = np.mean(delta_prev, axis=1)
+                        layer.mesh.adjoint_optimize(layer.input_prev, delta_prev, learning_rate)
 
                     # Set the backprop signal for the subsequent (spatially previous) layer
                     delta_prev = gradients[layer.__name__]
 
-            losses.append(np.sum(iteration_losses) / len(iteration_losses))
+            total_iteration_loss /= n_samples
+            losses.append(total_iteration_loss)
+
+            if show_progress:
+                iterator.set_description("ℒ = {:.2e}".format(total_iteration_loss), refresh=False)
 
         return losses
