@@ -92,12 +92,8 @@ class InSituGradientDescent(Optimizer):
 
                 # Compute the foward and adjoint fields at each phase shifter in all tunable layers
                 for layer in reversed(self.model.layers):
-
                     if isinstance(layer, OpticalMeshNetworkLayer):
-                        # Optimize the mesh using gradient descent
-                        # forward_field = np.mean(layer.input_prev, axis=1)
-                        # adjoint_field = np.mean(delta_prev, axis=1)
-                        layer.mesh.adjoint_optimize(layer.input_prev, delta_prev, learning_rate)
+                        layer.mesh.adjoint_optimize(layer.input_prev, delta_prev, lambda dx: -1 * learning_rate * dx)
 
                     # Set the backprop signal for the subsequent (spatially previous) layer
                     delta_prev = gradients[layer.__name__]
@@ -172,7 +168,7 @@ class InSituAdam(Optimizer):
                         # Optimize the mesh using gradient descent
                         # forward_field = np.mean(layer.input_prev, axis=1)
                         # adjoint_field = np.mean(delta_prev, axis=1)
-                        layer.mesh.adjoint_optimize(layer.input_prev, delta_prev, learning_rate)
+                        layer.mesh.adjoint_optimize(layer.input_prev, delta_prev, asdfasdfasdf)  # todo: finish
 
                     # Set the backprop signal for the subsequent (spatially previous) layer
                     delta_prev = gradients[layer.__name__]

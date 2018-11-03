@@ -26,8 +26,8 @@ class TestModels(NeuropticaTest):
 
             if isinstance(net_layer, OpticalMeshNetworkLayer):
                 # Optimize the mesh using gradient descent
-                gradient_dict = net_layer.mesh.adjoint_optimize(net_layer.input_prev, delta_prev, epsilon,
-                                                                dry_run=True)
+                gradient_dict = net_layer.mesh.adjoint_optimize(net_layer.input_prev, delta_prev,
+                                                                lambda dx: -1 * epsilon * dx, dry_run=True)
 
                 # Manually jiggle some phase shifters and check that the loss gradients are correct
                 for layer in net_layer.mesh.layers:

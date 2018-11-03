@@ -1,5 +1,5 @@
 from functools import reduce
-from typing import List, Type
+from typing import Callable, List, Type
 
 import numpy as np
 from numpy import pi
@@ -356,8 +356,10 @@ class OpticalMesh:
 
         return adjoint_fields
 
-    def adjoint_optimize(self, forward_field: np.ndarray, adjoint_field: np.ndarray, learning_rate: float,
-                         accumulator=np.mean, dry_run=False):
+    def adjoint_optimize(self, forward_field: np.ndarray, adjoint_field: np.ndarray,
+                         update_fn: Callable,  # update function takes a float and possibly other args and returns float
+                         accumulator: Callable[[np.ndarray], float] = np.mean,
+                         dry_run=False):
 
         forward_fields = self.compute_phase_shifter_fields(forward_field, align="right")
         adjoint_fields = self.compute_adjoint_phase_shifter_fields(adjoint_field, align="right")
@@ -374,9 +376,8 @@ class OpticalMesh:
 
                 else:
                     for phase_shifter in layer.phase_shifters:
-                        delta_phis = -1 * learning_rate * dL_dphi[phase_shifter.m]
-                        delta_phi = accumulator(delta_phis)
-                        phase_shifter.phi += delta_phi
+                        delta_phi = accumulator(dL_dphi[phase_shifter.m])
+                        phase_shifter.phi += update_fn(delta_phi)
 
             elif isinstance(layer, MZILayer):
                 A_theta, A_phi = layer_fields
@@ -388,12 +389,10 @@ class OpticalMesh:
 
                 else:
                     for mzi in layer.mzis:
-                        delta_thetas = -1 * learning_rate * dL_dtheta[mzi.m]
-                        delta_phis = -1 * learning_rate * dL_dphi[mzi.m]
-                        delta_theta = accumulator(delta_thetas)
-                        delta_phi = accumulator(delta_phis)
-                        mzi.theta += delta_theta
-                        mzi.phi += delta_phi
+                        delta_theta = accumulator(dL_dtheta[mzi.m])
+                        delta_phi = accumulator(dL_dphi[mzi.m])
+                        mzi.theta += update_fn(delta_theta)
+                        mzi.phi += update_fn(delta_phi)
 
             else:
                 raise ValueError("Tunable component layer must be phase-shifting!")
