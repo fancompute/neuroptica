@@ -8,11 +8,6 @@ from neuroptica.components.components import MZI, OpticalComponent, PhaseShifter
 from neuroptica.settings import NP_COMPLEX
 
 
-# component_type = deferred_type()
-# @jitclass(OrderedDict({
-#     "N": int32,
-#     "components":component_type[:]
-# }))
 class ComponentLayer:
     '''
     Base class for a physical column of optical components
@@ -32,10 +27,6 @@ class ComponentLayer:
         raise NotImplementedError("get_transfer_matrix() must be extended for child classes!")
 
 
-# mzi_type = deferred_type().define(MZI.class_type.instance_type)
-# @jitclass(OrderedDict({
-#     "mzis": mzi_type[:]
-# }))
 class MZILayer(ComponentLayer):
     '''
     Represents a physical column of MZI's attached to an ensemble of waveguides
@@ -89,44 +80,44 @@ class MZILayer(ComponentLayer):
         each MZI, (2) after theta shifter, (3) after second BS, and (4) after phi shifter. Order is reversed in the
         backwards case'''
 
-        # Ttotal = np.eye(self.N, dtype=NP_COMPLEX)
-        #
-        # partial_transfer_matrices = []
+        Ttotal = np.eye(self.N, dtype=NP_COMPLEX)
+
+        partial_transfer_matrices = []
 
         # Compute the (non-cumulative) partial transfer matrices for each MZI
-        if not add_uncertainties:
-            thetaphis = [(mzi.theta, mzi.phi) for mzi in self.mzis]
-            all_mzi_partials = self._get_all_mzi_partials(thetaphis, backward=backward, cumulative=False)
 
-        else:
-            all_mzi_partials = [mzi.get_partial_transfer_matrices
-                                (backward=backward, cumulative=False, add_uncertainties=add_uncertainties)
-                                for mzi in self.mzis]
+        # if not add_uncertainties:
+        #     thetaphis = [(mzi.theta, mzi.phi) for mzi in self.mzis]
+        #     all_mzi_partials = self._get_all_mzi_partials(thetaphis, backward=backward, cumulative=False)
+        # else:
 
-        mzi_mn = [(mzi.m, mzi.n) for mzi in self.mzis]
+        all_mzi_partials = [mzi.get_partial_transfer_matrices
+                            (backward=backward, cumulative=False, add_uncertainties=add_uncertainties)
+                            for mzi in self.mzis]
 
-        return self._get_partial_transfer_matrices(self.N, np.array(all_mzi_partials), np.array(mzi_mn),
-                                                   np.eye(self.N, dtype=NP_COMPLEX), cumulative=cumulative)
+        # mzi_mn = [(mzi.m, mzi.n) for mzi in self.mzis]
+        # return self._get_partial_transfer_matrices(self.N, np.array(all_mzi_partials), np.array(mzi_mn),
+        #                                            np.eye(self.N, dtype=NP_COMPLEX), cumulative=cumulative)
 
-        # for depth in range(len(all_mzi_partials[0])):
-        #     # Iterate over each sub-component at a given depth
-        #     T = np.eye(self.N, dtype=NP_COMPLEX)
-        #
-        #     for i, mzi in enumerate(self.mzis):
-        #         U = all_mzi_partials[i][depth]
-        #         m, n = mzi.m, mzi.n
-        #         T[m][m] = U[0, 0]
-        #         T[m][n] = U[0, 1]
-        #         T[n][m] = U[1, 0]
-        #         T[n][n] = U[1, 1]
-        #
-        #     if cumulative:
-        #         Ttotal = np.dot(T, Ttotal)
-        #         partial_transfer_matrices.append(Ttotal)
-        #     else:
-        #         partial_transfer_matrices.append(T)
-        #
-        # return partial_transfer_matrices
+        for depth in range(len(all_mzi_partials[0])):
+            # Iterate over each sub-component at a given depth
+            T = np.eye(self.N, dtype=NP_COMPLEX)
+
+            for i, mzi in enumerate(self.mzis):
+                U = all_mzi_partials[i][depth]
+                m, n = mzi.m, mzi.n
+                T[m][m] = U[0, 0]
+                T[m][n] = U[0, 1]
+                T[n][m] = U[1, 0]
+                T[n][n] = U[1, 1]
+
+            if cumulative:
+                Ttotal = np.dot(T, Ttotal)
+                partial_transfer_matrices.append(Ttotal)
+            else:
+                partial_transfer_matrices.append(T)
+
+        return np.array(partial_transfer_matrices)
 
     @staticmethod
     @jit(nopython=True, nogil=True, parallel=True)
@@ -165,10 +156,6 @@ class MZILayer(ComponentLayer):
         return partial_transfer_matrices
 
 
-# phase_shifter_type = deferred_type().define(PhaseShifter.class_type.instance_type)
-# @jitclass(OrderedDict({
-#     "phase_shifters": phase_shifter_type[:]
-# }))
 class PhaseShifterLayer(ComponentLayer):
     '''
     Represents a column of N single-mode phase shifters
@@ -223,15 +210,6 @@ class OpticalMesh:
 
     def get_transfer_matrix(self) -> np.ndarray:
         return reduce(np.dot, [layer.get_transfer_matrix() for layer in reversed(self.layers)])
-        # return self._get_transfer_matrix([layer.get_transfer_matrix() for layer in self.layers])
-
-    # @staticmethod
-    # @njit(parallel=True)
-    # def _get_transfer_matrix(transfer_matrices: List[np.ndarray]) -> np.ndarray:
-    #     T = transfer_matrices[0]
-    #     for transfer_matrix in transfer_matrices[1:]:
-    #         T = np.dot(transfer_matrix, T)
-    #     return T
 
     # TODO
     def get_partial_transfer_matrices(self, backward=False, cumulative=True) -> List[np.ndarray]:
