@@ -136,7 +136,7 @@ class ElectroOpticActivation(ComplexNonlinearity):
 
     def __init__(self, N, power_tapped=0.1, responsivity=0.8, mode_area=1.0, modulator_voltage=10.0, bias_voltage=10.0,
                  resistance=1000.0, impedence=120 * np.pi):
-        super().__init__(N, mode="polar")
+        super().__init__(N, mode="condensed")
         self.power_tapped = power_tapped
         self.responsivity = responsivity
         self.mode_area = mode_area
@@ -152,23 +152,15 @@ class ElectroOpticActivation(ComplexNonlinearity):
         a, gain, theta = self.power_tapped, self.gain, self.theta
         return 1/2 * np.sqrt(1 - a) * (1 + np.exp(-1j * gain * np.square(np.abs(Z))) * np.exp(-1j *theta)) * Z
 
-    def df_dZ(self, Z: np.ndarray) -> np.ndarray:
-        # This function is NOT holomorphic but this is here for fun
-        a, gain, theta = self.power_tapped, self.gain, self.theta
-        return 1/2 * np.sqrt(1 - a) * (1 + np.exp(-1j * gain * np.square(np.abs(Z))) * np.exp(-1j *theta))
+    def df_dRe(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        # d/da 1/2*sqrt(1-\alpha)*(1 + Exp[-i*g*(a + i*b)*(a - i*b)]*Exp[-i*\theta])*(a + i*b)
+        alpha, gain, theta = self.power_tapped, self.gain, self.theta
+        return np.sqrt(1 - alpha) * (1/2 + (1/2 + gain*(a*b - 1j*np.square(a))) * np.exp(gain*(-1j*np.square(a) - 1j*np.square(b)) - 1j*theta))
 
-    def df_dr(self, r: np.ndarray, phi: np.ndarray) -> np.ndarray:
-        # d/dr 1/2*sqrt(1-a)*(1 + Exp[-i*g*r^2]*Exp[-i*\theta])*r*Exp[i*p]
-        a, gain, theta = self.power_tapped, self.gain, self.theta
-        return 1/2 * np.sqrt(1 - a) * np.exp(1j * phi) * (1 + np.exp(-1j * gain * np.square(r)) * np.exp(-1j *theta)) \
-                    - 1j * np.sqrt(1 - a) * gain * np.square(r) * np.exp(-1j * gain * np.square(r)) * np.exp(-1j *theta) \
-                    * np.exp(1j * phi)
-
-    def df_dphi(self, r: np.ndarray, phi: np.ndarray) -> np.ndarray:
-        # d/dp 1/2*sqrt(1-a)*(1 + Exp[-i*g*r^2]*Exp[-i*\theta])*r*Exp[i*p]
-        a, gain, theta = self.power_tapped, self.gain, self.theta
-        return 1/2 * 1j * np.sqrt(1 - a) * np.exp(1j * phi) * r \
-                    * (1 + np.exp(-1j * gain * np.square(r)) * np.exp(-1j *theta))
+    def df_dIm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        # d/db 1/2*sqrt(1-\alpha)*(1 + Exp[-i*g*(a + i*b)*(a - i*b)]*Exp[-i*\theta])*(a + i*b)
+        alpha, gain, theta = self.power_tapped, self.gain, self.theta
+        return np.sqrt(1 - alpha) * ((gain*(np.square(b) - 1j*a*b) + 1j/2) * np.exp(gain*(-1j*np.square(a) - 1j* np.square(b)) - 1j*theta) + 1j/2)
 
 
 class Abs(ComplexNonlinearity):

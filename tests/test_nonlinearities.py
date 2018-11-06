@@ -31,9 +31,18 @@ class TestNonlinearities(NeuropticaTest):
 
     def test_OpticalMesh_adjoint_optimize(self):
         for N in [4, 5]:
+            
+            eo_settings = { 'power_tapped':      0.05,
+                            'responsivity':      0.80,
+                            'mode_area':         1.00,
+                            'modulator_voltage': 10.0,
+                            'bias_voltage':      10.0,
+                            'resistance':        2e5 }
+
             nonlinearities = [Abs(N, mode="full"),
                               AbsSquared(N),
                               # SoftMax(N),
+                              ElectroOpticActivation(N, **eo_settings),
                               LinearMask(N, mask=np.random.rand(N))]
             for nonlinearity in nonlinearities:
 
