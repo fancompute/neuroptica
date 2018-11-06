@@ -1,6 +1,7 @@
 from typing import List
 
 import numpy as np
+from numba import jit
 from numpy import pi
 
 from neuroptica.settings import NP_COMPLEX
@@ -116,32 +117,65 @@ class MZI(OpticalComponent):
         ], dtype=NP_COMPLEX)
 
     def get_partial_transfer_matrices(self, backward=False, cumulative=True,
-                                      add_uncertainties=False) -> List[np.ndarray]:
+                                      add_uncertainties=False) -> np.ndarray:
 
         if add_uncertainties:
             phi = self.phi + np.random.normal(0, self.phase_uncert)
             theta = self.theta + np.random.normal(0, self.phase_uncert)
         else:
-            phi, theta = self.phi, self.theta
+            theta, phi = self.theta, self.phi
 
-        theta_shifter_matrix = np.array([[np.exp(1j * theta), 0 + 0j], [0 + 0j, 1 + 0j]], dtype=NP_COMPLEX)
-        phi_shifter_matrix = np.array([[np.exp(1j * phi), 0 + 0j], [0 + 0j, 1 + 0j]], dtype=NP_COMPLEX)
+        return _get_mzi_partial_transfer_matrices(theta, phi, backward=backward, cumulative=cumulative)
 
-        component_transfer_matrices = [_B, theta_shifter_matrix, _B, phi_shifter_matrix]
+        # theta_shifter_matrix = np.array([[np.exp(1j * theta), 0 + 0j], [0 + 0j, 1 + 0j]], dtype=NP_COMPLEX)
+        # phi_shifter_matrix = np.array([[np.exp(1j * phi), 0 + 0j], [0 + 0j, 1 + 0j]], dtype=NP_COMPLEX)
+        #
+        # component_transfer_matrices = [_B, theta_shifter_matrix, _B, phi_shifter_matrix]
+        #
+        # if backward:
+        #     component_transfer_matrices = [U.T for U in component_transfer_matrices[::-1]]
+        #
+        # if cumulative:
+        #     T = component_transfer_matrices[0]
+        #     partial_transfer_matrices = [T]
+        #     for transfer_matrix in component_transfer_matrices[1:]:
+        #         T = np.dot(transfer_matrix, T)
+        #         partial_transfer_matrices.append(T)
+        #
+        #     return partial_transfer_matrices
+        # else:
+        #     return component_transfer_matrices
 
-        if backward:
-            component_transfer_matrices = [U.T for U in component_transfer_matrices[::-1]]
 
-        if cumulative:
-            T = component_transfer_matrices[0]
-            partial_transfer_matrices = [T]
-            for transfer_matrix in component_transfer_matrices[1:]:
-                T = np.dot(transfer_matrix, T)
-                partial_transfer_matrices.append(T)
+@jit(nopython=True, nogil=True, parallel=True)
+def _get_mzi_partial_transfer_matrices(theta, phi, backward=False, cumulative=True):
+    theta_shifter_matrix = np.array([[np.exp(1j * theta), 0 + 0j], [0 + 0j, 1 + 0j]], dtype=NP_COMPLEX)
+    phi_shifter_matrix = np.array([[np.exp(1j * phi), 0 + 0j], [0 + 0j, 1 + 0j]], dtype=NP_COMPLEX)
 
-            return partial_transfer_matrices
-        else:
-            return component_transfer_matrices
+    component_transfer_matrices = np.empty((4, 2, 2), NP_COMPLEX)
+
+    if not backward:
+        component_transfer_matrices[0] = _B
+        component_transfer_matrices[1] = theta_shifter_matrix
+        component_transfer_matrices[2] = _B
+        component_transfer_matrices[3] = phi_shifter_matrix
+    else:
+        component_transfer_matrices[3] = _B.T
+        component_transfer_matrices[2] = theta_shifter_matrix.T
+        component_transfer_matrices[1] = _B.T
+        component_transfer_matrices[0] = phi_shifter_matrix.T
+
+    if cumulative:
+        T = component_transfer_matrices[0]
+        partial_transfer_matrices = np.empty((4, 2, 2), NP_COMPLEX)
+        partial_transfer_matrices[0] = component_transfer_matrices[0]
+        for i in [1, 2, 3]:
+            T = np.dot(component_transfer_matrices[i], T)
+            partial_transfer_matrices[i] = T
+        return partial_transfer_matrices
+
+    else:
+        return component_transfer_matrices
 
 # if self.inverted:
 # 	return np.array([

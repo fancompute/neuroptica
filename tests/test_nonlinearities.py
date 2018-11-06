@@ -33,7 +33,7 @@ class TestNonlinearities(NeuropticaTest):
         for N in [4, 5]:
             nonlinearities = [Abs(N, mode="full"),
                               AbsSquared(N),
-                              # SoftMax(N),
+                              # ElectroOpticActivation(N),
                               LinearMask(N, mask=np.random.rand(N))]
             for nonlinearity in nonlinearities:
 
