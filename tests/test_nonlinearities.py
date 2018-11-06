@@ -34,7 +34,7 @@ class TestNonlinearities(NeuropticaTest):
             nonlinearities = [Abs(N, mode="full"),
                               AbsSquared(N),
                               # SoftMax(N),
-                              Mask(N, mask=np.random.rand(N))]
+                              LinearMask(N, mask=np.random.rand(N))]
             for nonlinearity in nonlinearities:
 
                 print("Testing nonlinearity {}".format(nonlinearity))

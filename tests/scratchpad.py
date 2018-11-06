@@ -33,7 +33,7 @@ if __name__ == "__main__":
         neu.Activation(neu.nonlinearities.Abs(N)),
         neu.ClementsLayer(N),
         neu.Activation(neu.nonlinearities.AbsSquared(N)),
-        neu.Activation(neu.nonlinearities.Mask(N, mask=mask)),
+        neu.Activation(neu.nonlinearities.LinearMask(N, mask=mask)),
         neu.Activation(neu.nonlinearities.SoftMax(N))
     ])
 
@@ -47,4 +47,4 @@ if __name__ == "__main__":
 
     # optimizer = neu.InSituGradientDescent(model, one_hot_cross_entropy, d_one_hot_cross_entropy)
     optimizer = neu.InSituGradientDescent(model, neu.losses.MeanSquaredError)
-    losses = optimizer.fit(X_formatted, Y_formatted, iterations=2000, learning_rate=0.001, batch_size=32)
+    losses = optimizer.fit(X_formatted, Y_formatted, epochs=2000, learning_rate=0.001, batch_size=32)

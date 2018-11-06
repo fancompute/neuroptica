@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 from scipy.stats import unitary_group
 
-from neuroptica.components import MZI, MZILayer, OpticalMesh, PhaseShifter, PhaseShifterLayer
+from neuroptica.components.component_layers import MZI, MZILayer, OpticalMesh, PhaseShifter, PhaseShifterLayer
 from neuroptica.layers import ClementsLayer
 from neuroptica.losses import MeanSquaredError
 from neuroptica.models import Sequential

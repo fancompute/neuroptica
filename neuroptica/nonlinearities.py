@@ -256,8 +256,8 @@ class SoftMax(Nonlinearity):
     #     return 0 * phi
 
 
-class Mask(ComplexNonlinearity):
-    '''Technically not a nonlinearity'''
+class LinearMask(ComplexNonlinearity):
+    '''Technically not a nonlinearity: apply a linear gain/loss to each element'''
 
     def __init__(self, N: int, mask=None):
         super().__init__(N, holomorphic=True)
@@ -273,3 +273,4 @@ class Mask(ComplexNonlinearity):
         z_broadcaster = np.ones(Z.shape)
         return (z_broadcaster.T * self.mask).T
         # return ((Z.T * self.mask) / Z.T).T
+

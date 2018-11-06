@@ -2,6 +2,7 @@ from typing import Tuple, Type
 
 import numpy as np
 
+from neuroptica.components.components import MZI, PhaseShifter
 from neuroptica.layers import OpticalMeshNetworkLayer
 from neuroptica.losses import Loss
 from neuroptica.models import Sequential
@@ -39,7 +40,7 @@ class Optimizer:
             Y = labels[:, i:i + batch_size]
             yield X, Y
 
-    def fit(self, data: np.ndarray, labels: np.ndarray, iterations=None, epochs=None, batch_size=None):
+    def fit(self, data: np.ndarray, labels: np.ndarray, epochs=None, batch_size=None):
         raise NotImplementedError("must extend Optimizer.fit() method in child classes!")
 
 
@@ -48,20 +49,16 @@ class InSituGradientDescent(Optimizer):
     On-chip training with in-situ backpropagation using adjoint field method and standard gradient descent
     '''
 
-    # def __init__(self, model: Sequential, loss_fn: Callable[[np.ndarray, np.ndarray], np.ndarray],
-    #              d_loss_fn: Callable[[np.ndarray, np.ndarray], np.ndarray], learning_rate=0.01):
-    #     self.model = model
-    #     self.loss_fn = loss_fn
-    #     self.d_loss_fn = d_loss_fn
-    #     self.learning_rate = learning_rate
+    def __init__(self, model: Sequential, loss: Type[Loss], learning_rate=0.01):
+        super().__init__(model, loss)
+        self.learning_rate = learning_rate
 
-    def fit(self, data: np.ndarray, labels: np.ndarray, iterations=1000, learning_rate=0.01,
-            batch_size=32, show_progress=True):
+    def fit(self, data: np.ndarray, labels: np.ndarray, epochs=1000, batch_size=32, show_progress=True):
         '''
         Fit the model to the labeled data
         :param data: features vector, shape: (n_features, n_samples)
         :param labels: labels vector, shape: (n_label_dim, n_samples)
-        :param iterations:
+        :param epochs:
         :param learning_rate:
         :param batch_size:
         :param show_progress:
@@ -72,7 +69,7 @@ class InSituGradientDescent(Optimizer):
 
         n_features, n_samples = data.shape
 
-        iterator = range(iterations)
+        iterator = range(epochs)
         if show_progress: iterator = pbar(iterator)
 
         for iteration in iterator:
@@ -93,7 +90,8 @@ class InSituGradientDescent(Optimizer):
                 # Compute the foward and adjoint fields at each phase shifter in all tunable layers
                 for layer in reversed(self.model.layers):
                     if isinstance(layer, OpticalMeshNetworkLayer):
-                        layer.mesh.adjoint_optimize(layer.input_prev, delta_prev, lambda dx: -1 * learning_rate * dx)
+                        layer.mesh.adjoint_optimize(layer.input_prev, delta_prev,
+                                                    lambda dx: -1 * self.learning_rate * dx)
 
                     # Set the backprop signal for the subsequent (spatially previous) layer
                     delta_prev = gradients[layer.__name__]
@@ -124,15 +122,23 @@ class InSituAdam(Optimizer):
         self.beta1 = beta1
         self.beta2 = beta2
         self.epsilon = epsilon
-        self.m = np.zeros()
+        self.t = 0
+        self.m = {}
+        self.v = {}
+        self.g = {}
+        for layer in model.layers:
+            if isinstance(layer, OpticalMeshNetworkLayer):
+                for component in layer.mesh.all_tunable_components():
+                    self.m[component] = np.zeros(component.dof)
+                    self.v[component] = np.zeros(component.dof)
+                    self.g[component] = np.zeros(component.dof)
 
-    def fit(self, data: np.ndarray, labels: np.ndarray, iterations=1000, learning_rate=0.01,
-            batch_size=32, show_progress=True):
+    def fit(self, data: np.ndarray, labels: np.ndarray, epochs=1000, batch_size=32, show_progress=True):
         '''
         Fit the model to the labeled data
         :param data: features vector, shape: (n_features, n_samples)
         :param labels: labels vector, shape: (n_label_dim, n_samples)
-        :param iterations:
+        :param epochs:
         :param learning_rate:
         :param batch_size:
         :param show_progress:
@@ -143,40 +149,57 @@ class InSituAdam(Optimizer):
 
         n_features, n_samples = data.shape
 
-        iterator = range(iterations)
+        iterator = range(epochs)
         if show_progress: iterator = pbar(iterator)
 
-        for iteration in iterator:
+        for epoch in iterator:
 
-            total_iteration_loss = 0.0
+            total_epoch_loss = 0.0
+            batch = 0
 
             for X, Y in self.make_batches(data, labels, batch_size):
+
+                batch += 1
+                self.t += 1
 
                 # Propagate the data forward
                 Y_hat = self.model.forward_pass(X)
                 d_loss = self.loss.dL(Y_hat, Y)
-                total_iteration_loss += np.sum(self.loss.L(Y_hat, Y))
+                total_epoch_loss += np.sum(self.loss.L(Y_hat, Y))
 
                 # Compute the backpropagated signals for the model
-                gradients = self.model.backward_pass(d_loss)
+                deltas = self.model.backward_pass(d_loss)
                 delta_prev = d_loss  # backprop signal to send in the final layer
 
                 # Compute the foward and adjoint fields at each phase shifter in all tunable layers
                 for layer in reversed(self.model.layers):
-
                     if isinstance(layer, OpticalMeshNetworkLayer):
-                        # Optimize the mesh using gradient descent
-                        # forward_field = np.mean(layer.input_prev, axis=1)
-                        # adjoint_field = np.mean(delta_prev, axis=1)
-                        layer.mesh.adjoint_optimize(layer.input_prev, delta_prev, asdfasdfasdf)  # todo: finish
+                        gradients = layer.mesh.compute_gradients(layer.input_prev, delta_prev)
+                        for cmpt in gradients:
+                            self.g[cmpt] = np.mean(gradients[cmpt], axis=-1)
+                            self.m[cmpt] = self.beta1 * self.m[cmpt] + (1 - self.beta1) * self.g[cmpt]
+                            self.v[cmpt] = self.beta2 * self.v[cmpt] + (1 - self.beta2) * self.g[cmpt] ** 2
+                            mhat = self.m[cmpt] / (1 - self.beta1 ** self.t)
+                            vhat = self.v[cmpt] / (1 - self.beta2 ** self.t)
+
+                            grad = -1 * self.step_size * mhat / (np.sqrt(vhat) + self.epsilon)
+
+                            # Adjust settings by gradient amount
+                            if isinstance(cmpt, PhaseShifter):
+                                cmpt.phi += grad[0]
+
+                            elif isinstance(cmpt, MZI):
+                                dtheta, dphi = grad
+                                cmpt.theta += dtheta
+                                cmpt.phi += dphi
 
                     # Set the backprop signal for the subsequent (spatially previous) layer
-                    delta_prev = gradients[layer.__name__]
+                    delta_prev = deltas[layer.__name__]
 
-            total_iteration_loss /= n_samples
-            losses.append(total_iteration_loss)
+            total_epoch_loss /= n_samples
+            losses.append(total_epoch_loss)
 
             if show_progress:
-                iterator.set_description("ℒ = {:.2e}".format(total_iteration_loss), refresh=False)
+                iterator.set_description("ℒ = {:.2e}".format(total_epoch_loss), refresh=False)
 
         return losses

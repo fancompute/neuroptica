@@ -1,7 +1,8 @@
 import numpy as np
 
-from neuroptica.components import MZILayer, OpticalMesh, PhaseShifterLayer
+from neuroptica.components.component_layers import MZILayer, OpticalMesh, PhaseShifterLayer
 from neuroptica.nonlinearities import ComplexNonlinearity
+from neuroptica.settings import NP_COMPLEX
 
 
 class NetworkLayer:
@@ -14,13 +15,42 @@ class NetworkLayer:
         self.output_size = output_size
         self.initializer = initializer
         self.input_prev: np.ndarray = None
-        self.input_prev: np.ndarray = None
+        self.output_prev: np.ndarray = None
 
     def forward_pass(self, X: np.ndarray) -> np.ndarray:
         raise NotImplementedError('forward_pass() must be overridden in child class!')
 
     def backward_pass(self, delta: np.ndarray) -> np.ndarray:
         raise NotImplementedError('backward_pass() must be overridden in child class!')
+
+
+class DropMask(NetworkLayer):
+    '''Drop specified ports entirely'''
+
+    def __init__(self, N: int, keep_ports=None, drop_ports=None):
+        if (keep_ports is not None and drop_ports is not None) or (keep_ports is None and drop_ports is None):
+            raise ValueError("specify exactly one of keep_ports or drop_ports")
+        if keep_ports:
+            self.ports = keep_ports
+        elif drop_ports:
+            ports = list(range(N))
+            for port in drop_ports:
+                ports.remove(port)
+            self.ports = ports
+        super().__init__(N, len(self.ports))
+
+    def forward_pass(self, X: np.ndarray):
+        # self.input_prev = X
+        # self.output_prev = X[self.ports, :]
+        # return self.output_prev
+        return X[self.ports]
+
+    def backward_pass(self, delta: np.ndarray) -> np.ndarray:
+        n_features, n_samples = delta.shape
+        delta_back = np.zeros((self.input_size, n_samples), dtype=NP_COMPLEX)
+        for i in range(n_features):
+            delta_back[self.ports[i]] = delta[i]
+        return delta_back
 
 
 class Activation(NetworkLayer):
