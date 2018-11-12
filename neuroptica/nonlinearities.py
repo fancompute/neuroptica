@@ -119,6 +119,33 @@ class ComplexNonlinearity(Nonlinearity):
         raise NotImplementedError
 
 
+class SPMActivation(ComplexNonlinearity):
+    '''
+    Lossless SPM activation function
+
+    Parameters
+    ---------------
+        phase_gain [ rad/(V^2/m^2) ] : The amount of phase shift per unit input "power"
+    '''
+    def __init__(self, N, gain):
+        super().__init__(N, mode="condensed")
+        self.gain = gain
+
+    def forward_pass(self, Z: np.ndarray):
+        gain = self.gain
+        return Z * np.exp(-1j * gain * np.square(np.abs(Z)))
+
+    def df_dRe(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        gain = self.gain
+        Z = a + 1j*b
+        return np.exp(-1j * gain * np.square(np.abs(Z))) * (-2j * np.square(a) * gain + 2 * a * b * gain + 1)
+
+    def df_dIm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        gain = self.gain
+        Z = a + 1j*b
+        return np.exp(-1j * gain * np.square(np.abs(Z))) * (-2j * a * b * gain + 2 * np.square(b) * gain + 1j)
+
+
 class ElectroOpticActivation(ComplexNonlinearity):
     '''
     Ian's electro-optic activation function
