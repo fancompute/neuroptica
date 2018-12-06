@@ -315,3 +315,27 @@ class ReLU(ComplexNonlinearity):
 
     def df_dZ(self, Z: np.ndarray):
         return (np.abs(Z) > self.cutoff) * 1 + (np.abs(Z) <= self.cutoff) * self.alpha * 1
+
+
+class modReLU(ComplexNonlinearity):
+    '''
+    Contintous, but non-holomorphic and non-simply backpropabable ReLU of the form
+    f(z) = (|z| - cutoff) * z / |z| if |z| > cutoff (else 0)
+    see: https://arxiv.org/pdf/1705.09792.pdf  (note, cutoff subtracted in this definition)
+
+    Arguments:
+    ----------
+        cutoff: value of input |x_i| above which to 
+    '''
+    def __init__(self, N, cutoff=1):
+        self.cutoff = cutoff
+        super().__init__(N, holomorphic=False, mode="polar")
+
+    def forward_pass(self, X: np.ndarray):
+        return (np.abs(X) > self.cutoff) * ( np.abs(X) - self.cutoff ) * X / np.abs(X)
+
+    def df_dr(self, r: np.ndarray, phi: np.ndarray):
+        return (r > self.cutoff) *  np.exp(1j * phi)
+
+    def df_dphi(self, r: np.ndarray, phi: np.ndarray):
+        return (r > self.cutoff) * 1j * (r - self.cutoff) * np.exp(1j * phi)
