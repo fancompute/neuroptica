@@ -294,7 +294,7 @@ class LinearMask(ComplexNonlinearity):
         # return ((Z.T * self.mask) / Z.T).T
 
 
-class ReLU(ComplexNonlinearity):
+class bpReLU(ComplexNonlinearity):
     '''
     Discontinuous (but holomorphic and backpropable) ReLU
     f(x_i) = alpha * x_i   if |x_i| <   cutoff
