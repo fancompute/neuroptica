@@ -46,7 +46,9 @@ class TestNonlinearities(NeuropticaTest):
                               SPMActivation(N, 1),
                               LinearMask(N, mask=np.random.rand(N)),
                               ReLU(N, cutoff=0.5, alpha=0.1),
-                              modReLU(N, cutoff=0.5)]
+                              modReLU(N, cutoff=0.5),
+                              cReLU(N),
+                              zReLU(N)]
             for nonlinearity in nonlinearities:
 
                 print("Testing nonlinearity {}".format(nonlinearity))
