@@ -293,3 +293,25 @@ class LinearMask(ComplexNonlinearity):
         return (z_broadcaster.T * self.mask).T
         # return ((Z.T * self.mask) / Z.T).T
 
+
+class ReLU(ComplexNonlinearity):
+    '''
+    Discontinuous (but holomorphic and backpropable) ReLU
+    f(x_i) = alpha * x_i   if |x_i| <  cutoff
+    f(x_i) = x_i           if |x_i| >= cutoff
+
+    Arguments:
+    ----------
+        cutoff: value of input |x_i| above which to fully transmit, below which to attentuate
+        alpha: attenuation factor f(x_i) = f
+    '''
+    def __init__(self, N, cutoff=1, alpha=0):
+        self.cutoff = cutoff
+        self.alpha = alpha
+        super().__init__(N, holomorphic=True)
+
+    def forward_pass(self, X: np.ndarray):
+        return (np.abs(X) > self.cutoff) * X + (np.abs(X) <= self.cutoff) * self.alpha * X
+
+    def df_dZ(self, Z: np.ndarray):
+        return (np.abs(Z) > self.cutoff) * 1 + (np.abs(Z) <= self.cutoff) * self.alpha * 1
