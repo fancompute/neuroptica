@@ -31,6 +31,11 @@ class DropMask(NetworkLayer):
         if (keep_ports is not None and drop_ports is not None) or (keep_ports is None and drop_ports is None):
             raise ValueError("specify exactly one of keep_ports or drop_ports")
         if keep_ports:
+            print(keep_ports)
+            if isinstance(keep_ports, range):
+                keep_ports = list(keep_ports)
+            elif isinstance(keep_ports, int) or isinstance(keep_ports, float):
+                keep_ports = [keep_ports]
             self.ports = keep_ports
         elif drop_ports:
             ports = list(range(N))
