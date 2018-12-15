@@ -83,7 +83,8 @@ class MZILayer(ComponentLayer):
         all_ms = np.hstack((ms, np.array(diag_elems)))
         all_ns = np.hstack((ns, np.array(diag_elems)))
         T = sp.coo_matrix((np.array(all_elems), (all_ms, all_ns)), shape=(self.N,self.N), dtype=NP_COMPLEX)
-        # T = T.toarray().astype(NP_COMPLEX)
+        T.tocsr()
+        T = T.toarray().astype(NP_COMPLEX)
         return T
 
     def get_partial_transfer_matrices(self, backward=False, cumulative=True,
@@ -113,22 +114,32 @@ class MZILayer(ComponentLayer):
 
         for depth in range(len(all_mzi_partials[0])):
             # Iterate over each sub-component at a given depth
-            T = np.eye(self.N, dtype=NP_COMPLEX)
+            ms = []
+            ns = []
+            vals = []
+            diag_elems = list(range(self.N))
 
             for i, mzi in enumerate(self.mzis):
                 U = all_mzi_partials[i][depth]
                 m, n = mzi.m, mzi.n
-                T[m][m] = U[0, 0]
-                T[m][n] = U[0, 1]
-                T[n][m] = U[1, 0]
-                T[n][n] = U[1, 1]
+                ms = ms + [mzi.m, mzi.m, mzi.n, mzi.n]
+                ns = ns + [mzi.m, mzi.n, mzi.m, mzi.n]
+                vals = vals + U.flatten().tolist()
+                diag_elems.remove(m)
+                diag_elems.remove(n)
+
+            all_vals = np.array(vals + [1]*len(diag_elems))
+            all_ms = np.array(ms + diag_elems)
+            all_ns = np.array(ns + diag_elems)
+            T = sp.coo_matrix((all_vals, (all_ms, all_ns)), shape=(self.N,self.N), dtype=NP_COMPLEX)
+            T.tocsr()
 
             if cumulative:
-                Ttotal = np.dot(T, Ttotal)
+                Ttotal = T.dot(Ttotal)
                 partial_transfer_matrices.append(Ttotal)
             else:
                 partial_transfer_matrices.append(T)
-
+        print(partial_transfer_matrices[0])
         return np.array(partial_transfer_matrices)
 
     @staticmethod
@@ -221,7 +232,8 @@ class OpticalMesh:
         assert all([N == layer.N for layer in layers]), "Dimension mismatch in layers!"
 
     def get_transfer_matrix(self) -> np.ndarray:
-        return reduce(np.dot, [layer.get_transfer_matrix() for layer in reversed(self.layers)])
+        Tsparse = reduce(np.dot, [layer.get_transfer_matrix() for layer in reversed(self.layers)])
+        return Tsparse
 
     # TODO
     def get_partial_transfer_matrices(self, backward=False, cumulative=True) -> List[np.ndarray]:
@@ -254,11 +266,12 @@ class OpticalMesh:
                 partial_transfer_matrices = layer.get_partial_transfer_matrices(backward=False, cumulative=True)
                 bs1_T, theta_T, bs2_T, phi_T = partial_transfer_matrices
                 if align == "right":
-                    fields.append([np.dot(theta_T, X_current), np.dot(phi_T, X_current)])
+                    fields.append([theta_T.dot(X_current), phi_T.dot(X_current)])
                 elif align == "left":
-                    fields.append([np.dot(bs1_T, X_current), np.dot(bs2_T, X_current)])
+                    fields.append([bs1_T.dot(X_current), bs2_T.dot(X_current)])
                 else:
                     raise ValueError('align must be "left" or "right"!')
+                X_current = phi_T.dot(X_current)
 
             elif isinstance(layer, PhaseShifterLayer):
                 if align == "right":
@@ -267,12 +280,12 @@ class OpticalMesh:
                     fields.append([np.copy(X_current)])
                 else:
                     raise ValueError('align must be "left" or "right"!')
+                X_current = np.dot(layer.get_transfer_matrix(), X_current)
 
             else:
                 raise TypeError("Layer is not instance of MZILayer or PhaseShifterLayer!")
 
-            X_current = np.dot(layer.get_transfer_matrix(), X_current)
-
+            
         return fields
 
     def compute_adjoint_phase_shifter_fields(self, delta: np.ndarray, align="right") -> List[List[np.ndarray]]:
@@ -294,11 +307,12 @@ class OpticalMesh:
                 phi_T_inv, bs2_T_inv, theta_T_inv, bs1_T_inv = partial_transfer_matrices_inv
 
                 if align == "right":
-                    adjoint_fields.append([np.copy(delta_current), np.dot(bs2_T_inv, delta_current)])
+                    adjoint_fields.append([np.copy(delta_current), bs2_T_inv.dot(delta_current)])
                 elif align == "left":
-                    adjoint_fields.append([np.dot(phi_T_inv, delta_current), np.dot(theta_T_inv, delta_current)])
+                    adjoint_fields.append([phi_T_inv.dot(delta_current), theta_T_inv.dot(delta_current)])
                 else:
                     raise ValueError('align must be "left" or "right"!')
+                delta_current = bs1_T_inv.dot(delta_current)
 
             elif isinstance(layer, PhaseShifterLayer):
                 if align == "right":
@@ -307,11 +321,11 @@ class OpticalMesh:
                     adjoint_fields.append([np.dot(layer.get_transfer_matrix().T, delta_current)])
                 else:
                     raise ValueError('align must be "left" or "right"!')
+                delta_current = np.dot(layer.get_transfer_matrix().T, delta_current)
 
             else:
                 raise TypeError("Layer is not instance of MZILayer or PhaseShifterLayer!")
 
-            delta_current = np.dot(layer.get_transfer_matrix().T, delta_current)
 
         return adjoint_fields
 
