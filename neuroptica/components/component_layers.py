@@ -65,26 +65,15 @@ class MZILayer(ComponentLayer):
         assert len(np.unique(input_ports)) == len(input_ports), "MZIs share duplicate input ports!"
 
     def get_transfer_matrix(self, add_uncertainties=False) -> np.ndarray:
-        Nmzi = len(self.mzis)
-        ms = np.zeros((4*Nmzi,), dtype=np.int32)
-        ns = np.zeros((4*Nmzi,), dtype=np.int32)
-        mat_elems = np.zeros((4*Nmzi,), dtype=NP_COMPLEX)
-        diag_elems = list(range(self.N))
-
-        for imzi, mzi in enumerate(self.mzis):
+        T = np.eye(self.N, dtype=NP_COMPLEX)
+        for mzi in self.mzis:
             U = mzi.get_transfer_matrix(add_uncertainties)
-            ms[imzi*4:imzi*4+4] = [mzi.m, mzi.m, mzi.n, mzi.n]
-            ns[imzi*4:imzi*4+4] = [mzi.m, mzi.n, mzi.m, mzi.n]
-            mat_elems[imzi*4:imzi*4+4] = U.flatten()
-            diag_elems.remove(mzi.m)
-            diag_elems.remove(mzi.n)
+            m, n = mzi.m, mzi.n
+            T[m][m] = U[0, 0]
+            T[m][n] = U[0, 1]
+            T[n][m] = U[1, 0]
+            T[n][n] = U[1, 1]
 
-        all_elems = np.hstack((mat_elems, np.ones((len(diag_elems),))))
-        all_ms = np.hstack((ms, np.array(diag_elems)))
-        all_ns = np.hstack((ns, np.array(diag_elems)))
-        T = sp.coo_matrix((np.array(all_elems), (all_ms, all_ns)), shape=(self.N,self.N), dtype=NP_COMPLEX)
-        T.tocsr()
-        T = T.toarray().astype(NP_COMPLEX)
         return T
 
     def get_partial_transfer_matrices(self, backward=False, cumulative=True,
@@ -93,7 +82,7 @@ class MZILayer(ComponentLayer):
         each MZI, (2) after theta shifter, (3) after second BS, and (4) after phi shifter. Order is reversed in the
         backwards case'''
 
-        Ttotal = np.eye(self.N, dtype=NP_COMPLEX)
+        Ttotal = sp.eye(self.N, dtype=NP_COMPLEX)
 
         partial_transfer_matrices = []
 
@@ -139,8 +128,7 @@ class MZILayer(ComponentLayer):
                 partial_transfer_matrices.append(Ttotal)
             else:
                 partial_transfer_matrices.append(T)
-        print(partial_transfer_matrices[0])
-        return np.array(partial_transfer_matrices)
+        return partial_transfer_matrices
 
     @staticmethod
     @jit(nopython=True, nogil=True, parallel=True)
