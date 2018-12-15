@@ -83,8 +83,7 @@ class MZILayer(ComponentLayer):
         all_ms = np.hstack((ms, np.array(diag_elems)))
         all_ns = np.hstack((ns, np.array(diag_elems)))
         T = sp.coo_matrix((np.array(all_elems), (all_ms, all_ns)), shape=(self.N,self.N), dtype=NP_COMPLEX)
-        T = T.toarray()
-        print(T)
+        # T = T.toarray().astype(NP_COMPLEX)
         return T
 
     def get_partial_transfer_matrices(self, backward=False, cumulative=True,
