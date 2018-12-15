@@ -120,8 +120,7 @@ class MZILayer(ComponentLayer):
             all_vals = np.array(vals + [1]*len(diag_elems))
             all_ms = np.array(ms + diag_elems)
             all_ns = np.array(ns + diag_elems)
-            T = sp.coo_matrix((all_vals, (all_ms, all_ns)), shape=(self.N,self.N), dtype=NP_COMPLEX)
-            T.tocsr()
+            T = sp.coo_matrix((all_vals, (all_ms, all_ns)), shape=(self.N,self.N), dtype=NP_COMPLEX).tocsr()
 
             if cumulative:
                 Ttotal = T.dot(Ttotal)
