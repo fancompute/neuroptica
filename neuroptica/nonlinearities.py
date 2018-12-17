@@ -148,46 +148,55 @@ class SPMActivation(ComplexNonlinearity):
 
 class ElectroOpticActivation(ComplexNonlinearity):
     '''
-    Ian's electro-optic activation function
+    Electro-optic activation function with intensity modulation (remod). 
 
-    Parameter units
-    ---------------
-        power_tapped: unitless
-        responsivity: watt/amps
-        mode_area: um^2
-        modulator_voltage: volts
-        bias_voltage: volts
-        resistance: ohm
-        impedence: ohm
+    This activation can be configured either in terms of its physical parameters, detailed
+    below, or directly in terms of the feedforward phase gain, g and the biasing phase, phi_b.
+
+    If the electro-optic parameters below are specified g and phi_b are computed for the user.
+
+    Physical parameters and units
+    ------------------------------
+        alpha: Amount of power tapped off to PD [unitless]
+        responsivity: PD responsivity [Watts/amp]
+        area: Modal area [micron^2]
+        V_pi: Modulator V_pi (voltage required for a pi phase shift) [Volts]
+        V_bias: Modulator static bias [Volts]
+        R: Transimpedance gain [Ohms]
+        impedance: Characteristic impedance for computing optical power [Ohms]
     '''
 
-    def __init__(self, N, power_tapped=0.1, responsivity=0.8, mode_area=1.0, modulator_voltage=10.0, bias_voltage=10.0,
-                 resistance=1000.0, impedence=120 * np.pi):
+    def __init__(self, N, alpha=0.1, responsivity=0.8, area=1.0,
+    			 V_pi=10.0, V_bias=10.0, R=1e3, impedance=120 * np.pi,
+    			 g=None, phi_b=None):
+
         super().__init__(N, mode="condensed")
-        self.power_tapped = power_tapped
-        self.responsivity = responsivity
-        self.mode_area = mode_area
-        self.modulator_voltage = modulator_voltage
-        self.bias_voltage = bias_voltage
-        self.resistance = resistance
-        self.impedence = impedence
-        # Defining "feedforward phase gain" and "phase bias" parameters
-        self.gain = np.pi * power_tapped * resistance * responsivity * mode_area / 2 / modulator_voltage / impedence
-        self.theta  = np.pi * bias_voltage / modulator_voltage
+
+        self.alpha = alpha
+
+        if g is not None and phi_b is not None:
+        	self.g = g
+        	self.phi_b = phi_b
+
+        else:
+	        # Convert into "feedforward phase gain" and "phase bias" parameters
+	        self.g = np.pi * alpha * R * responsivity * area * 1e-12 / 2 / V_pi / impedance
+	        self.phi_b  = np.pi * V_bias / V_pi
+
 
     def forward_pass(self, Z: np.ndarray):
-        a, gain, theta = self.power_tapped, self.gain, self.theta
-        return 1/2 * np.sqrt(1 - a) * (1 + np.exp(-1j * gain * np.square(np.abs(Z))) * np.exp(-1j *theta)) * Z
+        alpha, g, phi_b = self.alpha, self.g, self.phi_b
+        return 1j * np.sqrt(1-alpha) * np.exp(-1j*0.5*g*np.square(np.abs(Z)) - 1j*0.5*phi_b) * np.cos(0.5*g*np.square(np.abs(Z)) + 0.5*phi_b) * Z
 
     def df_dRe(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
-        # d/da 1/2*sqrt(1-\alpha)*(1 + Exp[-i*g*(a + i*b)*(a - i*b)]*Exp[-i*\theta])*(a + i*b)
-        alpha, gain, theta = self.power_tapped, self.gain, self.theta
-        return np.sqrt(1 - alpha) * (1/2 + (1/2 + gain*(a*b - 1j*np.square(a))) * np.exp(gain*(-1j*np.square(a) - 1j*np.square(b)) - 1j*theta))
+        # d/da i * sqrt(1-\alpha) * Exp[-i*0.5*(g*(a+i*b)*(a-i*b) + \phi)] * Cos[0.5*(g*(a+i*b)*(a-i*b) + \phi)] * (a+i*b)
+        alpha, g, phi_b = self.alpha, self.g, self.phi_b
+        return np.sqrt(1 - alpha) * np.exp((-0.5*1j) * g * (a - 1j*b) * (a + 1j*b) - (0.5*1j)*phi_b)*(a*g*(b - 1j*a)*np.sin(0.5*a**2*g + 0.5*b**2*g + 0.5*phi_b) + (a**2*g + 1j*a*b*g + 1j) * np.cos(0.5*a**2*g + 0.5*b**2*g + 0.5*phi_b))
 
     def df_dIm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
-        # d/db 1/2*sqrt(1-\alpha)*(1 + Exp[-i*g*(a + i*b)*(a - i*b)]*Exp[-i*\theta])*(a + i*b)
-        alpha, gain, theta = self.power_tapped, self.gain, self.theta
-        return np.sqrt(1 - alpha) * ((gain*(np.square(b) - 1j*a*b) + 1j/2) * np.exp(gain*(-1j*np.square(a) - 1j* np.square(b)) - 1j*theta) + 1j/2)
+        # d/db i * sqrt(1-\alpha) * Exp[-i*0.5*(g*(a+i*b)*(a-i*b) + \phi)] * Cos[0.5*(g*(a+i*b)*(a-i*b) + \phi)] * (a+i*b)
+        alpha, g, phi_b = self.alpha, self.g, self.phi_b
+        return np.sqrt(1 - alpha) * np.exp((-0.5*1j) * g * (a - 1j*b) * (a + 1j*b) - (0.5*1j)*phi_b)*(b*g*(b - 1j*a)*np.sin(0.5*a**2*g + 0.5*b**2*g + 0.5*phi_b) + (a*b*g + 1j*b**2*g - 1)* np.cos(0.5*a**2*g + 0.5*b**2*g + 0.5*phi_b))
 
 
 class Abs(ComplexNonlinearity):
