@@ -43,8 +43,12 @@ class TestNonlinearities(NeuropticaTest):
                               AbsSquared(N),
                               # SoftMax(N),
                               ElectroOpticActivation(N, **eo_settings),
-                              SPMActivation(N,1),
-                              LinearMask(N, mask=np.random.rand(N))]
+                              SPMActivation(N, 1),
+                              LinearMask(N, mask=np.random.rand(N)),
+                              bpReLU(N, cutoff=0.5, alpha=0.1),
+                              modReLU(N, cutoff=0.5),
+                              cReLU(N),
+                              zReLU(N)]
             for nonlinearity in nonlinearities:
 
                 print("Testing nonlinearity {}".format(nonlinearity))

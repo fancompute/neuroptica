@@ -302,3 +302,91 @@ class LinearMask(ComplexNonlinearity):
         return (z_broadcaster.T * self.mask).T
         # return ((Z.T * self.mask) / Z.T).T
 
+
+class bpReLU(ComplexNonlinearity):
+    '''
+    Discontinuous (but holomorphic and backpropable) ReLU
+    f(x_i) = alpha * x_i   if |x_i| <   cutoff
+    f(x_i) = x_i           if |x_i| >=   cutoff
+
+    Arguments:
+    ----------
+        cutoff: value of input |x_i| above which to fully transmit, below which to attentuate
+        alpha: attenuation factor f(x_i) = f
+    '''
+    def __init__(self, N, cutoff=1, alpha=0):
+        super().__init__(N, holomorphic=True)
+        self.cutoff = cutoff
+        self.alpha = alpha
+
+    def forward_pass(self, X: np.ndarray):
+        return (np.abs(X) >= self.cutoff) * X + (np.abs(X) < self.cutoff) * self.alpha * X
+
+    def df_dZ(self, Z: np.ndarray):
+        return (np.abs(Z) >= self.cutoff) * 1 + (np.abs(Z) < self.cutoff) * self.alpha * 1
+
+
+class modReLU(ComplexNonlinearity):
+    '''
+    Contintous, but non-holomorphic and non-simply backpropabable ReLU of the form
+    f(z) = (|z| - cutoff) * z / |z| if |z| >= cutoff (else 0)
+    see: https://arxiv.org/pdf/1705.09792.pdf  (note, cutoff subtracted in this definition)
+
+    Arguments:
+    ----------
+        cutoff: value of input |x_i| above which to 
+    '''
+    def __init__(self, N, cutoff=1):
+        super().__init__(N, holomorphic=False, mode="polar")
+        self.cutoff = cutoff
+
+    def forward_pass(self, X: np.ndarray):
+        return (np.abs(X) >= self.cutoff) * ( np.abs(X) - self.cutoff ) * X / np.abs(X)
+
+    def df_dr(self, r: np.ndarray, phi: np.ndarray):
+        return (r >= self.cutoff) *  np.exp(1j * phi)
+
+    def df_dphi(self, r: np.ndarray, phi: np.ndarray):
+        return (r >= self.cutoff) * 1j * (r - self.cutoff) * np.exp(1j * phi)
+
+
+class cReLU(ComplexNonlinearity):
+    '''
+    Contintous, but non-holomorphic and non-simply backpropabable ReLU of the form
+    f(z) = ReLU(Re{z}) + 1j * ReLU(Im{z})
+    see: https://arxiv.org/pdf/1705.09792.pdf
+    '''
+    def __init__(self, N):
+        super().__init__(N, holomorphic=False, mode="condensed")
+
+    def forward_pass(self, X: np.ndarray):
+        X_re = np.real(X)
+        X_im = np.imag(X)
+        return (X_re > 0) * X_re + 1j * (X_im > 0) * X_im
+
+    def df_dRe(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        return (a > 0)
+
+    def df_dIm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        return 1j * (b > 0)
+
+
+class zReLU(ComplexNonlinearity):
+    '''
+    Contintous, but non-holomorphic and non-simply backpropabable ReLU of the form
+    f(z) = z if Re{z} > 0 and Im{z} > 0, else 0
+    see: https://arxiv.org/pdf/1705.09792.pdf
+    '''
+    def __init__(self, N):
+        super().__init__(N, holomorphic=False, mode="condensed")
+
+    def forward_pass(self, X: np.ndarray):
+        X_re = np.real(X)
+        X_im = np.imag(X)
+        return (X_re > 0) * (X_im > 0) * X
+
+    def df_dRe(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        return (a > 0) * (b > 0)
+
+    def df_dIm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        return (a > 0) * (b > 0) * 1j
