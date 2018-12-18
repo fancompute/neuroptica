@@ -234,7 +234,6 @@ class OpticalMesh:
 	def __init__(self, N: int, layers: List[Type[ComponentLayer]]):
 		self.N = N
 		self.layers = layers
-		np.random.seed(1)
 
 	def __iter__(self) -> Iterable[ComponentLayer]:
 		yield from self.layers
@@ -296,6 +295,11 @@ class OpticalMesh:
 					fields.append([fields1, fields2])
 				else:
 					raise ValueError('align must be "left" or "right"!')
+				partial_transfer_matrices = layer.get_partial_transfer_matrices(backward=False, cumulative=True)
+				bs11, theta1, bs21, phi1 = partial_transfer_matrices
+				print('forward', np.linalg.norm(fields1 - np.dot(theta1, X_current)),
+					np.linalg.norm(fields2 - np.dot(phi1, X_current)))
+
 				X_current = phi_T[0, :][:, None]*X_current + phi_T[1, :][:, None]*X_current[inds_mn, :]
 
 			elif isinstance(layer, PhaseShifterLayer):
@@ -341,10 +345,12 @@ class OpticalMesh:
 					raise ValueError('align must be "left" or "right"!')
 				partial_transfer_matrices_inv = layer.get_partial_transfer_matrices(backward=True, cumulative=True)
 				phi1, bs21, theta1, bs11 = partial_transfer_matrices_inv
-				# print(np.dot(bs21, delta_current), "\n",
-				# 	bs2_T_inv[0, :][:, None]*delta_current + bs2_T_inv[1, :][:, None]*delta_current[inds_mn, :])
+				# print('direct:', np.dot(bs21, delta_current), '\n',
+				#  	'new:', fields2)
+				print('direct:', bs21, '\n',
+				 	'new:', bs2_T_inv)
 				# delta_current = bs1_T_inv[0, :][:, None]*delta_current + bs1_T_inv[1, :][:, None]*delta_current[inds_mn, :]
-				print(fields2)
+				# print('adjoint', np.linalg.norm(fields2 - np.dot(bs21, delta_current)))
 
 			elif isinstance(layer, PhaseShifterLayer):
 				if align == "right":
