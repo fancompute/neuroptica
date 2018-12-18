@@ -156,10 +156,11 @@ class MZILayer(ComponentLayer):
 					Tvec[1][n] = U[0, 1]
 					Tvec[1][m] = U[1, 0]
 					Tvec[0][n] = U[1, 1]
-				
+			
+			print('Tvec:', Tvec)	
 			partial_transfer_vectors.append(Tvec)
 
-		return (partial_transfer_vectors, inds_mn)
+		return partial_transfer_vectors
 
 
 	@staticmethod
@@ -282,8 +283,9 @@ class OpticalMesh:
 		for layer in self.layers:
 
 			if isinstance(layer, MZILayer):
-				(partial_transfer_vectors, inds_mn) = layer.get_partial_transfer_vectors(backward=False, cumulative=True)
+				partial_transfer_vectors = layer.get_partial_transfer_vectors(backward=False, cumulative=True)
 				bs1_T, theta_T, bs2_T, phi_T = partial_transfer_vectors
+				print(partial_transfer_vectors)
 
 				if align == "right":
 					fields1 = theta_T[0, :][:, None]*X_current + theta_T[1, :][:, None]*X_current[inds_mn, :]
@@ -333,6 +335,7 @@ class OpticalMesh:
 			if isinstance(layer, MZILayer):
 				(partial_transfer_vectors_inv, inds_mn) = layer.get_partial_transfer_vectors(backward=True, cumulative=True)
 				phi_T_inv, bs2_T_inv, theta_T_inv, bs1_T_inv = partial_transfer_vectors_inv
+				print(partial_transfer_vectors_inv)
 
 				if align == "right":
 					fields2 = bs2_T_inv[0, :][:, None]*delta_current + bs2_T_inv[1, :][:, None]*delta_current[inds_mn, :]
@@ -347,8 +350,8 @@ class OpticalMesh:
 				phi1, bs21, theta1, bs11 = partial_transfer_matrices_inv
 				# print('direct:', np.dot(bs21, delta_current), '\n',
 				#  	'new:', fields2)
-				print('direct:', bs21, '\n',
-				 	'new:', bs2_T_inv)
+				print('direct:', phi1, '\n',
+				 	'new:', phi_T_inv)
 				# delta_current = bs1_T_inv[0, :][:, None]*delta_current + bs1_T_inv[1, :][:, None]*delta_current[inds_mn, :]
 				# print('adjoint', np.linalg.norm(fields2 - np.dot(bs21, delta_current)))
 
