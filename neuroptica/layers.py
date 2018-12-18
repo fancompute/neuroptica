@@ -122,13 +122,22 @@ class ClementsLayer(OpticalMeshNetworkLayer):
 
         self.mesh = OpticalMesh(N, layers)
 
-    def forward_pass(self, X: np.ndarray) -> np.ndarray:
+    def forward_pass(self, X: np.ndarray, field_store=False) -> np.ndarray:
         self.input_prev = X
-        self.output_prev = np.dot(self.mesh.get_transfer_matrix(), X)
+        if not field_store:
+            self.output_prev = np.dot(self.mesh.get_transfer_matrix(), X)
+        else:
+            self.forward_fields = self.mesh.compute_phase_shifter_fields(X, align="right")
+            self.output_prev = np.copy(self.forward_fields[-1][-1])
+
         return self.output_prev
 
-    def backward_pass(self, delta: np.ndarray) -> np.ndarray:
-        return np.dot(self.mesh.get_transfer_matrix().T, delta)
+    def backward_pass(self, delta: np.ndarray, field_store=False) -> np.ndarray:        
+        if not field_store:
+            return np.dot(self.mesh.get_transfer_matrix().T, delta)
+        else:
+            self.adjoint_fields = self.mesh.compute_adjoint_phase_shifter_fields(delta, align="right")
+            return np.copy(self.adjoint_fields[-1][-1])
 
 
 class ReckLayer(OpticalMeshNetworkLayer):

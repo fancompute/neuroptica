@@ -2,7 +2,7 @@ from typing import Dict, List
 
 import numpy as np
 
-from neuroptica.layers import NetworkLayer
+from neuroptica.layers import NetworkLayer, OpticalMeshNetworkLayer
 
 
 class BaseModel:
@@ -42,13 +42,16 @@ class Sequential(BaseModel):
     def __repr__(self):
         return "<Sequential Model: {}>".format([layer.__name__ for layer in self.layers])
 
-    def forward_pass(self, X: np.ndarray) -> np.ndarray:
+    def forward_pass(self, X: np.ndarray, field_store=False) -> np.ndarray:
         X_out = X
         for layer in self.layers:
-            X_out = layer.forward_pass(X_out)
+            if isinstance(layer, OpticalMeshNetworkLayer) and field_store:
+                X_out = layer.forward_pass(X_out, field_store=True)
+            else:
+                X_out = layer.forward_pass(X_out)
         return X_out
 
-    def backward_pass(self, d_loss: np.ndarray) -> Dict[str, np.ndarray]:
+    def backward_pass(self, d_loss: np.ndarray, field_store=False) -> Dict[str, np.ndarray]:
         '''
         Returns the gradients for each layer resulting from backpropagating from derivative loss function d_loss
         :param d_loss: derivative of the loss function of the outputs
@@ -57,6 +60,10 @@ class Sequential(BaseModel):
         backprop_signal = d_loss
         gradients = {"output": d_loss}
         for layer in reversed(self.layers):
-            backprop_signal = layer.backward_pass(backprop_signal)
+            if isinstance(layer, OpticalMeshNetworkLayer) and field_store:
+                backprop_signal = layer.backward_pass(backprop_signal, field_store=True)
+            else:
+                backprop_signal = layer.backward_pass(backprop_signal)
+            
             gradients[layer.__name__] = backprop_signal
         return gradients

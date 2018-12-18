@@ -157,10 +157,9 @@ class MZILayer(ComponentLayer):
 					Tvec[1][m] = U[1, 0]
 					Tvec[0][n] = U[1, 1]
 			
-			print('Tvec:', Tvec)	
-			partial_transfer_vectors.append(Tvec)
+			partial_transfer_vectors.append(np.copy(Tvec))
 
-		return partial_transfer_vectors
+		return (partial_transfer_vectors, inds_mn)
 
 
 	@staticmethod
@@ -283,9 +282,8 @@ class OpticalMesh:
 		for layer in self.layers:
 
 			if isinstance(layer, MZILayer):
-				partial_transfer_vectors = layer.get_partial_transfer_vectors(backward=False, cumulative=True)
+				(partial_transfer_vectors, inds_mn) = layer.get_partial_transfer_vectors(backward=False, cumulative=True)
 				bs1_T, theta_T, bs2_T, phi_T = partial_transfer_vectors
-				print(partial_transfer_vectors)
 
 				if align == "right":
 					fields1 = theta_T[0, :][:, None]*X_current + theta_T[1, :][:, None]*X_current[inds_mn, :]
@@ -299,8 +297,6 @@ class OpticalMesh:
 					raise ValueError('align must be "left" or "right"!')
 				partial_transfer_matrices = layer.get_partial_transfer_matrices(backward=False, cumulative=True)
 				bs11, theta1, bs21, phi1 = partial_transfer_matrices
-				print('forward', np.linalg.norm(fields1 - np.dot(theta1, X_current)),
-					np.linalg.norm(fields2 - np.dot(phi1, X_current)))
 
 				X_current = phi_T[0, :][:, None]*X_current + phi_T[1, :][:, None]*X_current[inds_mn, :]
 
@@ -335,7 +331,6 @@ class OpticalMesh:
 			if isinstance(layer, MZILayer):
 				(partial_transfer_vectors_inv, inds_mn) = layer.get_partial_transfer_vectors(backward=True, cumulative=True)
 				phi_T_inv, bs2_T_inv, theta_T_inv, bs1_T_inv = partial_transfer_vectors_inv
-				print(partial_transfer_vectors_inv)
 
 				if align == "right":
 					fields2 = bs2_T_inv[0, :][:, None]*delta_current + bs2_T_inv[1, :][:, None]*delta_current[inds_mn, :]
@@ -346,14 +341,7 @@ class OpticalMesh:
 					adjoint_fields.append([fields1, fields2])                    
 				else:
 					raise ValueError('align must be "left" or "right"!')
-				partial_transfer_matrices_inv = layer.get_partial_transfer_matrices(backward=True, cumulative=True)
-				phi1, bs21, theta1, bs11 = partial_transfer_matrices_inv
-				# print('direct:', np.dot(bs21, delta_current), '\n',
-				#  	'new:', fields2)
-				print('direct:', phi1, '\n',
-				 	'new:', phi_T_inv)
-				# delta_current = bs1_T_inv[0, :][:, None]*delta_current + bs1_T_inv[1, :][:, None]*delta_current[inds_mn, :]
-				# print('adjoint', np.linalg.norm(fields2 - np.dot(bs21, delta_current)))
+				delta_current = bs1_T_inv[0, :][:, None]*delta_current + bs1_T_inv[1, :][:, None]*delta_current[inds_mn, :]
 
 			elif isinstance(layer, PhaseShifterLayer):
 				if align == "right":
@@ -363,11 +351,10 @@ class OpticalMesh:
 				else:
 					raise ValueError('align must be "left" or "right"!')
 				# delta_current = np.dot(layer.get_transfer_matrix().T, delta_current)
+				delta_current = np.dot(layer.get_transfer_matrix().T, delta_current)
 
 			else:
 				raise TypeError("Layer is not instance of MZILayer or PhaseShifterLayer!")
-		
-			delta_current = np.dot(layer.get_transfer_matrix().T, delta_current)
 
 		return adjoint_fields
 
@@ -415,11 +402,15 @@ class OpticalMesh:
 		if dry_run:
 			return gradient_dict
 
-	def compute_gradients(self, forward_field: np.ndarray, adjoint_field: np.ndarray) \
+	def compute_gradients(self, forward_field: np.ndarray, adjoint_field: np.ndarray, field_store=False) \
 			-> Dict[Type[OpticalComponent], np.ndarray]:
 
-		forward_fields = self.compute_phase_shifter_fields(forward_field, align="right")
-		adjoint_fields = self.compute_adjoint_phase_shifter_fields(adjoint_field, align="right")
+		if field_store:
+			forward_fields = self.forward_fields
+			adjoint_fields = self.adjoint_fields
+		else:
+			forward_fields = self.compute_phase_shifter_fields(forward_field, align="right")
+			adjoint_fields = self.compute_adjoint_phase_shifter_fields(adjoint_field, align="right")
 
 		gradients = {}
 
