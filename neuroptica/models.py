@@ -30,7 +30,6 @@ class Sequential(BaseModel):
     '''
     Feed-foward model class similar to the Keras Sequential() model class
     '''
-
     def __init__(self, layers: List[NetworkLayer]):
         self.layers = layers
         self.input_cache = {}
@@ -39,6 +38,7 @@ class Sequential(BaseModel):
             layer.__name__ = "Layer{}_{}".format(i, layer.__class__.__name__)
             self.input_cache[layer.__name__] = []
             self.output_cache[layer.__name__] = []
+        np.random.seed(1)
 
     def __repr__(self):
         return "<Sequential Model: {}>".format([layer.__name__ for layer in self.layers])
