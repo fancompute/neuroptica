@@ -285,22 +285,17 @@ class OpticalMesh:
                 (partial_transfer_vectors, inds_mn) = layer.get_partial_transfer_vectors(backward=False, cumulative=True)
                 bs1_T, theta_T, bs2_T, phi_T = partial_transfer_vectors
 
-                print(inds_mn)
                 if align == "right":
                     fields1 = theta_T[0, :][:, None]*X_current + theta_T[1, :][:, None]*X_current[inds_mn, :]
                     fields2 = phi_T[0, :][:, None]*X_current + phi_T[1, :][:, None]*X_current[inds_mn, :]
                     fields.append([fields1, fields2])
-                    X_current = np.dot(layer.get_transfer_matrix(), X_current)
-                    # print(X_current, fields2)
-                    # print(layer.get_transfer_matrix(), phi_T, X_current[:, 0])
-                    # print(np.dot(layer.get_transfer_matrix(), X_current[:, :]), "\n", 
-                    #     phi_T[0, :][:, None]*X_current[:, :] + phi_T[1, :][:, None]*X_current[inds_mn, :])
                 elif align == "left":
                     fields1 = bs1_T[0, :][:, None]*X_current + bs1_T[1, :][:, None]*X_current[inds_mn, :]
                     fields2 = bs2_T[0, :][:, None]*X_current + bs2_T[1, :][:, None]*X_current[inds_mn, :]
                     fields.append([fields1, fields2])
                 else:
                     raise ValueError('align must be "left" or "right"!')
+                X_current = phi_T[0, :][:, None]*X_current + phi_T[1, :][:, None]*X_current[inds_mn, :]
 
             elif isinstance(layer, PhaseShifterLayer):
                 if align == "right":
@@ -309,11 +304,10 @@ class OpticalMesh:
                     fields.append([np.copy(X_current)])
                 else:
                     raise ValueError('align must be "left" or "right"!')
+                X_current = np.dot(layer.get_transfer_matrix(), X_current)
 
             else:
                 raise TypeError("Layer is not instance of MZILayer or PhaseShifterLayer!")
-
-            X_current = np.dot(layer.get_transfer_matrix(), X_current)
 
         return fields
 
@@ -338,8 +332,6 @@ class OpticalMesh:
                 if align == "right":
                     fields2 = bs2_T_inv[0, :][:, None]*delta_current + bs2_T_inv[1, :][:, None]*delta_current[inds_mn, :]
                     adjoint_fields.append([np.copy(delta_current), fields2])
-                    print(np.dot(layer.get_transfer_matrix().T, delta_current[:, :]), "\n", 
-                        bs1_T_inv[0, :][:, None]*delta_current[:, :] + bs1_T_inv[1, :][:, None]*delta_current[inds_mn, :])
                 elif align == "left":
                     fields1 = phi_T_inv[0, :][:, None]*delta_current + phi_T_inv[1, :][:, None]*delta_current[inds_mn, :]
                     fields2 = theta_T_inv[0, :][:, None]*delta_current + theta_T_inv[1, :][:, None]*delta_current[inds_mn, :]
