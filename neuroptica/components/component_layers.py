@@ -145,16 +145,17 @@ class MZILayer(ComponentLayer):
                 inds_mn[m] = n
                 inds_mn[n] = m
 
-            if cumulative:
-                Tvec[0][m] = Tvec[0][m]*U[0, 0] + Tvec[1][n]*U[1, 0]
-                Tvec[1][m] = Tvec[1][m]*U[0, 0] + Tvec[0][n]*U[1, 0]
-                Tvec[1][n] = Tvec[0][m]*U[1, 1] + Tvec[1][n]*U[0, 1]
-                Tvec[0][n] = Tvec[1][m]*U[1, 1] + Tvec[0][n]*U[0, 1]
-            else:
-                Tvec[0][m] = U[0, 0]
-                Tvec[1][n] = U[0, 1]
-                Tvec[1][m] = U[1, 0]
-                Tvec[0][n] = U[1, 1]
+                if cumulative:
+                    t00, t01, t10, t11 = Tvec[0][m], Tvec[1][n], Tvec[1][m], Tvec[0][n]
+                    Tvec[0][m] = t00*U[0, 0] + t01*U[1, 0]
+                    Tvec[1][m] = t10*U[0, 0] + t11*U[1, 0]
+                    Tvec[1][n] = t00*U[0, 1] + t01*U[1, 1]
+                    Tvec[0][n] = t10*U[0, 1] + t11*U[1, 1]
+                else:
+                    Tvec[0][m] = U[0, 0]
+                    Tvec[1][n] = U[0, 1]
+                    Tvec[1][m] = U[1, 0]
+                    Tvec[0][n] = U[1, 1]
                 
             partial_transfer_vectors.append(Tvec)
 
@@ -283,13 +284,18 @@ class OpticalMesh:
             if isinstance(layer, MZILayer):
                 (partial_transfer_vectors, inds_mn) = layer.get_partial_transfer_vectors(backward=False, cumulative=True)
                 bs1_T, theta_T, bs2_T, phi_T = partial_transfer_vectors
+
+                print(inds_mn)
                 if align == "right":
-                    fields1 = theta_T[0].reshape(self.N, 1)*X_current + theta_T[1, :].reshape(self.N, 1)*X_current[inds_mn]
-                    fields2 = phi_T[0].reshape(self.N, 1)*X_current + phi_T[1].reshape(self.N, 1)*X_current[inds_mn]
+                    fields1 = theta_T[0, :][:, None]*X_current + theta_T[1, :][:, None]*X_current[inds_mn, :]
+                    fields2 = phi_T[0, :][:, None]*X_current + phi_T[1, :][:, None]*X_current[inds_mn, :]
                     fields.append([fields1, fields2])
+                    X_current = np.dot(layer.get_transfer_matrix(), X_current)
+                    # print(X_current, fields2)
+                    print(layer.get_transfer_matrix(), phi_T)
                 elif align == "left":
-                    fields1 = bs1_T[0].reshape(self.N, 1)*X_current + bs1_T[1, :].reshape(self.N, 1)*X_current[inds_mn]
-                    fields2 = bs2_T[0].reshape(self.N, 1)*X_current + bs2_T[1].reshape(self.N, 1)*X_current[inds_mn]
+                    fields1 = bs1_T[0, :][:, None]*X_current + bs1_T[1, :][:, None]*X_current[inds_mn, :]
+                    fields2 = bs2_T[0, :][:, None]*X_current + bs2_T[1, :][:, None]*X_current[inds_mn, :]
                     fields.append([fields1, fields2])
                 else:
                     raise ValueError('align must be "left" or "right"!')
@@ -324,16 +330,16 @@ class OpticalMesh:
         for layer in reversed(self.layers):
 
             if isinstance(layer, MZILayer):
-                (partial_transfer_vectors, inds_mn) = layer.get_partial_transfer_vectors(backward=True, cumulative=True)
-                bs1_T_inv, theta_T_inv, bs2_T_inv, phi_T_inv = partial_transfer_vectors
+                (partial_transfer_vectors_inv, inds_mn) = layer.get_partial_transfer_vectors(backward=True, cumulative=True)
+                phi_T_inv, bs2_T_inv, theta_T_inv, bs1_T_inv = partial_transfer_vectors_inv
 
                 if align == "right":
-                    fields2 = bs2_T_inv[0].reshape(self.N, 1)*delta_current + bs2_T_inv[1].reshape(self.N, 1)*delta_current[inds_mn]
+                    fields2 = bs2_T_inv[0, :][:, None]*delta_current + bs2_T_inv[1, :][:, None]*delta_current[inds_mn, :]
                     adjoint_fields.append([np.copy(delta_current), fields2])
                 elif align == "left":
-                    fields1 = phi_T_inv[0].reshape(self.N, 1)*delta_current + phi_T_inv[1, :].reshape(self.N, 1)*delta_current[inds_mn]
-                    fields2 = theta_T_inv[0].reshape(self.N, 1)*delta_current + theta_T_inv[1].reshape(self.N, 1)*delta_current[inds_mn]
-                    fields.append([fields1, fields2])                    
+                    fields1 = phi_T_inv[0, :][:, None]*delta_current + phi_T_inv[1, :][:, None]*delta_current[inds_mn, :]
+                    fields2 = theta_T_inv[0, :][:, None]*delta_current + theta_T_inv[1, :][:, None]*delta_current[inds_mn, :]
+                    adjoint_fields.append([fields1, fields2])                    
                 else:
                     raise ValueError('align must be "left" or "right"!')
 
