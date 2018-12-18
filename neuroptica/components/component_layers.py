@@ -234,6 +234,7 @@ class OpticalMesh:
 	def __init__(self, N: int, layers: List[Type[ComponentLayer]]):
 		self.N = N
 		self.layers = layers
+		np.random.seed(1)
 
 	def __iter__(self) -> Iterable[ComponentLayer]:
 		yield from self.layers

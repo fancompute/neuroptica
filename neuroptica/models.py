@@ -23,7 +23,7 @@ class Model(BaseModel):
     '''
 
     def __init__(self):
-        pass
+        np.random.seed(1)
 
 
 class Sequential(BaseModel):
@@ -38,7 +38,6 @@ class Sequential(BaseModel):
             layer.__name__ = "Layer{}_{}".format(i, layer.__class__.__name__)
             self.input_cache[layer.__name__] = []
             self.output_cache[layer.__name__] = []
-        np.random.seed(1)
 
     def __repr__(self):
         return "<Sequential Model: {}>".format([layer.__name__ for layer in self.layers])
