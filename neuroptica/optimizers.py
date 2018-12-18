@@ -133,7 +133,7 @@ class InSituAdam(Optimizer):
                     self.v[component] = np.zeros(component.dof)
                     self.g[component] = np.zeros(component.dof)
 
-    def fit(self, data: np.ndarray, labels: np.ndarray, epochs=1000, batch_size=32, show_progress=True, field_store=False):
+    def fit(self, data: np.ndarray, labels: np.ndarray, epochs=1000, batch_size=32, show_progress=True, field_store=True):
         '''
         Fit the model to the labeled data
         :param data: features vector, shape: (n_features, n_samples)
@@ -175,7 +175,7 @@ class InSituAdam(Optimizer):
                 # Compute the foward and adjoint fields at each phase shifter in all tunable layers
                 for layer in reversed(self.model.layers):
                     if isinstance(layer, OpticalMeshNetworkLayer):
-                        gradients = layer.mesh.compute_gradients(layer.input_prev, delta_prev)
+                        gradients = layer.mesh.compute_gradients(layer.input_prev, delta_prev, field_store=field_store)
                         for cmpt in gradients:
                             self.g[cmpt] = np.mean(gradients[cmpt], axis=-1)
                             self.m[cmpt] = self.beta1 * self.m[cmpt] + (1 - self.beta1) * self.g[cmpt]

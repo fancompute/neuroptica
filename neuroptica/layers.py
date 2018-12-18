@@ -127,8 +127,8 @@ class ClementsLayer(OpticalMeshNetworkLayer):
         if not field_store:
             self.output_prev = np.dot(self.mesh.get_transfer_matrix(), X)
         else:
-            self.forward_fields = self.mesh.compute_phase_shifter_fields(X, align="right")
-            self.output_prev = np.copy(self.forward_fields[-1][-1])
+            self.mesh.forward_fields = self.mesh.compute_phase_shifter_fields(X, align="right")
+            self.output_prev = np.copy(self.mesh.forward_fields[-1][-1])
 
         return self.output_prev
 
@@ -136,8 +136,8 @@ class ClementsLayer(OpticalMeshNetworkLayer):
         if not field_store:
             return np.dot(self.mesh.get_transfer_matrix().T, delta)
         else:
-            self.adjoint_fields = self.mesh.compute_adjoint_phase_shifter_fields(delta, align="right")
-            return np.copy(self.adjoint_fields[-1][-1])
+            self.mesh.adjoint_fields = self.mesh.compute_adjoint_phase_shifter_fields(delta, align="right")
+            return np.copy(self.mesh.adjoint_fields[-1][-1])
 
 
 class ReckLayer(OpticalMeshNetworkLayer):

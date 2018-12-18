@@ -234,6 +234,8 @@ class OpticalMesh:
 	def __init__(self, N: int, layers: List[Type[ComponentLayer]]):
 		self.N = N
 		self.layers = layers
+		self.forward_fields = []
+		self.adjoint_fields = []
 
 	def __iter__(self) -> Iterable[ComponentLayer]:
 		yield from self.layers
@@ -268,7 +270,7 @@ class OpticalMesh:
 			partial_transfer_matrices.append(Ttotal)
 		return partial_transfer_matrices
 
-	def compute_phase_shifter_fields(self, X: np.ndarray, align="right") -> List[List[np.ndarray]]:
+	def compute_phase_shifter_fields(self, X: np.ndarray, align="right", vectors=False) -> List[List[np.ndarray]]:
 		'''
 		Compute the foward-pass field at the left/right of each phase shifter in the mesh
 		:param X: input field to the mesh
@@ -282,23 +284,31 @@ class OpticalMesh:
 		for layer in self.layers:
 
 			if isinstance(layer, MZILayer):
-				(partial_transfer_vectors, inds_mn) = layer.get_partial_transfer_vectors(backward=False, cumulative=True)
-				bs1_T, theta_T, bs2_T, phi_T = partial_transfer_vectors
+				if vectors:
+					(partial_transfer_vectors, inds_mn) = layer.get_partial_transfer_vectors(backward=False, cumulative=True)
+					bs1_T, theta_T, bs2_T, phi_T = partial_transfer_vectors
 
-				if align == "right":
-					fields1 = theta_T[0, :][:, None]*X_current + theta_T[1, :][:, None]*X_current[inds_mn, :]
-					fields2 = phi_T[0, :][:, None]*X_current + phi_T[1, :][:, None]*X_current[inds_mn, :]
-					fields.append([fields1, fields2])
-				elif align == "left":
-					fields1 = bs1_T[0, :][:, None]*X_current + bs1_T[1, :][:, None]*X_current[inds_mn, :]
-					fields2 = bs2_T[0, :][:, None]*X_current + bs2_T[1, :][:, None]*X_current[inds_mn, :]
-					fields.append([fields1, fields2])
+					if align == "right":
+						fields1 = theta_T[0, :][:, None]*X_current + theta_T[1, :][:, None]*X_current[inds_mn, :]
+						fields2 = phi_T[0, :][:, None]*X_current + phi_T[1, :][:, None]*X_current[inds_mn, :]
+						fields.append([fields1, fields2])
+					elif align == "left":
+						fields1 = bs1_T[0, :][:, None]*X_current + bs1_T[1, :][:, None]*X_current[inds_mn, :]
+						fields2 = bs2_T[0, :][:, None]*X_current + bs2_T[1, :][:, None]*X_current[inds_mn, :]
+						fields.append([fields1, fields2])
+					else:
+						raise ValueError('align must be "left" or "right"!')
+					X_current = phi_T[0, :][:, None]*X_current + phi_T[1, :][:, None]*X_current[inds_mn, :]
 				else:
-					raise ValueError('align must be "left" or "right"!')
-				partial_transfer_matrices = layer.get_partial_transfer_matrices(backward=False, cumulative=True)
-				bs11, theta1, bs21, phi1 = partial_transfer_matrices
-
-				X_current = phi_T[0, :][:, None]*X_current + phi_T[1, :][:, None]*X_current[inds_mn, :]
+					partial_transfer_matrices = layer.get_partial_transfer_matrices(backward=False, cumulative=True)
+					bs1_T, theta_T, bs2_T, phi_T = partial_transfer_matrices
+					if align == "right":
+						fields.append([np.dot(theta_T, X_current), np.dot(phi_T, X_current)])
+					elif align == "left":
+						fields.append([np.dot(bs1_T, X_current), np.dot(bs2_T, X_current)])
+					else:
+						raise ValueError('align must be "left" or "right"!')
+					X_current = np.dot(phi_T, X_current)
 
 			elif isinstance(layer, PhaseShifterLayer):
 				if align == "right":
@@ -314,7 +324,7 @@ class OpticalMesh:
 
 		return fields
 
-	def compute_adjoint_phase_shifter_fields(self, delta: np.ndarray, align="right") -> List[List[np.ndarray]]:
+	def compute_adjoint_phase_shifter_fields(self, delta: np.ndarray, align="right", vectors=False) -> List[List[np.ndarray]]:
 		'''
 		Compute the backward-pass field at the left/right of each phase shifter in the mesh
 		:param delta: input adjoint field to the mesh
@@ -329,19 +339,32 @@ class OpticalMesh:
 		for layer in reversed(self.layers):
 
 			if isinstance(layer, MZILayer):
-				(partial_transfer_vectors_inv, inds_mn) = layer.get_partial_transfer_vectors(backward=True, cumulative=True)
-				phi_T_inv, bs2_T_inv, theta_T_inv, bs1_T_inv = partial_transfer_vectors_inv
+				if vectors:
+					(partial_transfer_vectors_inv, inds_mn) = layer.get_partial_transfer_vectors(backward=True, cumulative=True)
+					phi_T_inv, bs2_T_inv, theta_T_inv, bs1_T_inv = partial_transfer_vectors_inv
 
-				if align == "right":
-					fields2 = bs2_T_inv[0, :][:, None]*delta_current + bs2_T_inv[1, :][:, None]*delta_current[inds_mn, :]
-					adjoint_fields.append([np.copy(delta_current), fields2])
-				elif align == "left":
-					fields1 = phi_T_inv[0, :][:, None]*delta_current + phi_T_inv[1, :][:, None]*delta_current[inds_mn, :]
-					fields2 = theta_T_inv[0, :][:, None]*delta_current + theta_T_inv[1, :][:, None]*delta_current[inds_mn, :]
-					adjoint_fields.append([fields1, fields2])                    
+					if align == "right":
+						fields2 = bs2_T_inv[0, :][:, None]*delta_current + bs2_T_inv[1, :][:, None]*delta_current[inds_mn, :]
+						adjoint_fields.append([np.copy(delta_current), fields2])
+					elif align == "left":
+						fields1 = phi_T_inv[0, :][:, None]*delta_current + phi_T_inv[1, :][:, None]*delta_current[inds_mn, :]
+						fields2 = theta_T_inv[0, :][:, None]*delta_current + theta_T_inv[1, :][:, None]*delta_current[inds_mn, :]
+						adjoint_fields.append([fields1, fields2])                    
+					else:
+						raise ValueError('align must be "left" or "right"!')
+					delta_current = bs1_T_inv[0, :][:, None]*delta_current + bs1_T_inv[1, :][:, None]*delta_current[inds_mn, :]
+
 				else:
-					raise ValueError('align must be "left" or "right"!')
-				delta_current = bs1_T_inv[0, :][:, None]*delta_current + bs1_T_inv[1, :][:, None]*delta_current[inds_mn, :]
+					partial_transfer_matrices_inv = layer.get_partial_transfer_matrices(backward=True, cumulative=True)
+					phi_T_inv, bs2_T_inv, theta_T_inv, bs1_T_inv = partial_transfer_matrices_inv
+
+					if align == "right":
+						adjoint_fields.append([np.copy(delta_current), np.dot(bs2_T_inv, delta_current)])
+					elif align == "left":
+						adjoint_fields.append([np.dot(phi_T_inv, delta_current), np.dot(theta_T_inv, delta_current)])
+					else:
+						raise ValueError('align must be "left" or "right"!')
+					delta_current = np.dot(bs1_T_inv, delta_current)
 
 			elif isinstance(layer, PhaseShifterLayer):
 				if align == "right":
