@@ -292,7 +292,9 @@ class OpticalMesh:
                     fields.append([fields1, fields2])
                     X_current = np.dot(layer.get_transfer_matrix(), X_current)
                     # print(X_current, fields2)
-                    print(layer.get_transfer_matrix(), phi_T)
+                    # print(layer.get_transfer_matrix(), phi_T, X_current[:, 0])
+                    # print(np.dot(layer.get_transfer_matrix(), X_current[:, :]), "\n", 
+                    #     phi_T[0, :][:, None]*X_current[:, :] + phi_T[1, :][:, None]*X_current[inds_mn, :])
                 elif align == "left":
                     fields1 = bs1_T[0, :][:, None]*X_current + bs1_T[1, :][:, None]*X_current[inds_mn, :]
                     fields2 = bs2_T[0, :][:, None]*X_current + bs2_T[1, :][:, None]*X_current[inds_mn, :]
@@ -334,11 +336,11 @@ class OpticalMesh:
                 phi_T_inv, bs2_T_inv, theta_T_inv, bs1_T_inv = partial_transfer_vectors_inv
 
                 if align == "right":
-                    fields2 = bs2_T_inv[0, :][:, None]*delta_current + bs2_T_inv[1, :][:, None]*delta_current[inds_mn, :]
+                    fields2 = bs2_T_inv[0, :][:, None]*delta_current + bs2_T_inv[1, inds_mn][:, None]*delta_current[inds_mn, :]
                     adjoint_fields.append([np.copy(delta_current), fields2])
                 elif align == "left":
-                    fields1 = phi_T_inv[0, :][:, None]*delta_current + phi_T_inv[1, :][:, None]*delta_current[inds_mn, :]
-                    fields2 = theta_T_inv[0, :][:, None]*delta_current + theta_T_inv[1, :][:, None]*delta_current[inds_mn, :]
+                    fields1 = phi_T_inv[0, :][:, None]*delta_current + phi_T_inv[1, inds_mn][:, None]*delta_current[inds_mn, :]
+                    fields2 = theta_T_inv[0, :][:, None]*delta_current + theta_T_inv[1, inds_mn][:, None]*delta_current[inds_mn, :]
                     adjoint_fields.append([fields1, fields2])                    
                 else:
                     raise ValueError('align must be "left" or "right"!')
