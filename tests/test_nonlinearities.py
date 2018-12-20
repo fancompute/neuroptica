@@ -13,21 +13,21 @@ from tests.test_models import TestModels
 class TestNonlinearities(NeuropticaTest):
     '''Tests for Network nonlinearities'''
 
-    def test_Abs(self):
-        '''Tests the z->|z| nonlinearity'''
-        for N in [8, 9]:
-            gamma = self.random_complex_vector(N)
-            Z_back = self.random_complex_vector(N)
-            backward_results = []
+    # def test_Abs(self):
+    #     '''Tests the z->|z| nonlinearity'''
+    #     for N in [8, 9]:
+    #         gamma = self.random_complex_vector(N)
+    #         Z_back = self.random_complex_vector(N)
+    #         backward_results = []
 
-            for mode in ["full", "condensed", "polar"]:
-                a = Abs(N, mode=mode)
-                back = a.backward_pass(gamma, Z_back)
-                backward_results.append(back)
+    #         for mode in ["full", "condensed", "polar"]:
+    #             a = Abs(N)
+    #             back = a.backward_pass(gamma, Z_back)
+    #             backward_results.append(back)
 
-            # Check that backprop results are the same for each mode
-            for result1, result2 in combinations(backward_results, 2):
-                self.assert_allclose(result1, result1)
+    #         # Check that backprop results are the same for each mode
+    #         for result1, result2 in combinations(backward_results, 2):
+    #             self.assert_allclose(result1, result1)
 
     def test_OpticalMesh_adjoint_optimize(self):
         for N in [4, 5]:
@@ -40,7 +40,7 @@ class TestNonlinearities(NeuropticaTest):
                             'R':        2e5 }
 
             # nonlinearities that may be applied to complex outpus
-            nonlinearities_complex = [Abs(N, mode="full"),
+            nonlinearities_complex = [Abs(N),
                                       AbsSquared(N),
                                       ElectroOpticActivation(N, **eo_settings),
                                       SPMActivation(N, 1),
@@ -79,7 +79,7 @@ class TestNonlinearities(NeuropticaTest):
                     # Compute the backpropagated signals for the model
                     gradients = model.backward_pass(d_loss)
 
-                    TestModels.verify_model_gradients(model, X, Y, loss.L, gradients, epsilon=1e-6)
+                    TestModels.verify_model_gradients(model, X, Y, loss.L, gradients, epsilon=1e-2)
 
             for nonlinearity in nonlinearities_real:
 
@@ -108,7 +108,7 @@ class TestNonlinearities(NeuropticaTest):
                     # Compute the backpropagated signals for the model
                     gradients = model.backward_pass(d_loss)
 
-                    TestModels.verify_model_gradients(model, X, Y, loss.L, gradients, epsilon=1e-6)
+                    TestModels.verify_model_gradients(model, X, Y, loss.L, gradients, epsilon=1e-9)
 
 
 if __name__ == "__main__":
