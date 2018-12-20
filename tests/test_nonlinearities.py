@@ -41,6 +41,7 @@ class TestNonlinearities(NeuropticaTest):
 
             # nonlinearities that may be applied to complex outpus
             nonlinearities_complex = [Abs(N, mode="full"),
+                                      SoftMax(N),
                                       AbsSquared(N),
                                       ElectroOpticActivation(N, **eo_settings),
                                       SPMActivation(N, 1),
