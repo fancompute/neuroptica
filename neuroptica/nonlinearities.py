@@ -12,7 +12,8 @@ class Nonlinearity:
         :param N: dimensionality of the nonlinear function
         '''
         self.N = N     # Dimensionality of the nonlinearity
-        self.jacobian = jacobian(self.forward_pass)
+        self.jacobian_re = jacobian(self._forward_pass_re)
+        self.jacobian_im = jacobian(self._forward_pass_im)
 
     def __repr__(self):
         return type(self).__name__
@@ -25,6 +26,12 @@ class Nonlinearity:
         '''
         raise NotImplementedError('forward_pass() must be overridden in child class!')
 
+    def _forward_pass_re(self, X: np.ndarray) -> np.ndarray:
+        return np.real(self.forward_pass)
+
+    def _forward_pass_im(self, X: np.ndarray) -> np.ndarray:
+        return np.imag(self.forward_pass)
+
     def backward_pass(self, gamma: np.ndarray, Z: np.ndarray) -> np.ndarray:
         '''
         Backpropagate a signal through the layer
@@ -33,21 +40,21 @@ class Nonlinearity:
         :return: backpropagated fields delta_l
         '''
 
-        if np.iscomplexobj(gamma):
-            Z = np.vstack([np.real(Z), np.imag(Z)])
-
         if Z.ndim == 1:
-            jac = self.jacobian(Z)
-            return jac.T @ gamma
-        else:
-            n_features, n_samples = Z.shape
-            total_derivs = np.zeros(Z.shape, dtype=np.complex64)
-            for i in range(n_samples):
+            Z = Z.reshape((Z.size, 1))
+            gamma = gamma.reshape((gamma.size, 1))
 
-                Z_i = Z[:, i]
-                jac = self.jacobian(Z_i)
-                total_derivs[:, i] = jac.T @ gamma[:, i]
-            return total_derivs
+        n_features, n_samples = Z.shape
+        total_derivs = np.zeros(Z.shape, dtype=NP_COMPLEX)
+
+        for i in range(n_samples):
+            Z_i = Z[:, i]
+            gamma_re, gamma_im = np.real(gamma[:, i]), np.imag(gamma[:, i])
+            jac_re = self.jacobian_re(Z_i)
+            jac_im = self.jacobian_im(Z_i)
+
+            total_derivs[:, i] = jac_re.T @ gamma_re + jac_im.T @ gamma_im
+        return total_derivs
 
 class SPMActivation(Nonlinearity):
     '''
@@ -134,24 +141,13 @@ class AbsSquared(Nonlinearity):
 
 class SoftMax(Nonlinearity):
 
+    def __init__(self, N):
+        super().__init__(N)
+
     def forward_pass(self, X: np.ndarray):
         X = np.abs(X)
         return np.exp(X) / np.sum(np.exp(X), axis=0)
 
-    def backward_pass(self, gamma: np.ndarray, Z: np.ndarray):
-        Z = np.abs(Z)
-        softmax = np.exp(Z) / np.sum(np.exp(Z), axis=0)
-
-        n_features, n_samples = Z.shape
-        total_derivs = np.zeros(Z.shape)
-
-        for i in range(n_samples):
-            s = softmax[:, i].reshape(-1, 1)
-            jac = np.diagflat(s) - np.dot(s, s.T)
-            total_derivs[:, i] = jac.T @ gamma[:, i]
-
-        # todo: why is this not working?
-        return total_derivs
 
 class LinearMask(Nonlinearity):
     '''Technically not a nonlinearity: apply a linear gain/loss to each element'''
@@ -165,11 +161,6 @@ class LinearMask(Nonlinearity):
 
     def forward_pass(self, X: np.ndarray):
         return (X.T * self.mask).T
-
-    def df_dZ(self, Z: np.ndarray):
-        z_broadcaster = np.ones(Z.shape)
-        return (z_broadcaster.T * self.mask).T
-        # return ((Z.T * self.mask) / Z.T).T
 
 
 class bpReLU(Nonlinearity):
@@ -191,9 +182,6 @@ class bpReLU(Nonlinearity):
     def forward_pass(self, X: np.ndarray):
         return (np.abs(X) >= self.cutoff) * X + (np.abs(X) < self.cutoff) * self.alpha * X
 
-    def df_dZ(self, Z: np.ndarray):
-        return (np.abs(Z) >= self.cutoff) * 1 + (np.abs(Z) < self.cutoff) * self.alpha * 1
-
 
 class modReLU(Nonlinearity):
     '''
@@ -212,12 +200,6 @@ class modReLU(Nonlinearity):
     def forward_pass(self, X: np.ndarray):
         return (np.abs(X) >= self.cutoff) * ( np.abs(X) - self.cutoff ) * X / np.abs(X)
 
-    def df_dr(self, r: np.ndarray, phi: np.ndarray):
-        return (r >= self.cutoff) *  np.exp(1j * phi)
-
-    def df_dphi(self, r: np.ndarray, phi: np.ndarray):
-        return (r >= self.cutoff) * 1j * (r - self.cutoff) * np.exp(1j * phi)
-
 
 class cReLU(Nonlinearity):
     '''
@@ -233,12 +215,6 @@ class cReLU(Nonlinearity):
         X_im = np.imag(X)
         return (X_re > 0) * X_re + 1j * (X_im > 0) * X_im
 
-    def df_dRe(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
-        return (a > 0)
-
-    def df_dIm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
-        return 1j * (b > 0)
-
 
 class zReLU(Nonlinearity):
     '''
@@ -253,9 +229,3 @@ class zReLU(Nonlinearity):
         X_re = np.real(X)
         X_im = np.imag(X)
         return (X_re > 0) * (X_im > 0) * X
-
-    def df_dRe(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
-        return (a > 0) * (b > 0)
-
-    def df_dIm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
-        return (a > 0) * (b > 0) * 1j
