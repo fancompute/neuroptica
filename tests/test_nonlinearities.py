@@ -39,17 +39,21 @@ class TestNonlinearities(NeuropticaTest):
                             'V_bias':      10.0,
                             'R':        2e5 }
 
-            nonlinearities = [Abs(N, mode="full"),
-                              AbsSquared(N),
-                              # SoftMax(N),
-                              ElectroOpticActivation(N, **eo_settings),
-                              SPMActivation(N, 1),
-                              LinearMask(N, mask=np.random.rand(N)),
-                              bpReLU(N, cutoff=0.5, alpha=0.1),
-                              modReLU(N, cutoff=0.5),
-                              cReLU(N),
-                              zReLU(N)]
-            for nonlinearity in nonlinearities:
+            # nonlinearities that may be applied to complex outpus
+            nonlinearities_complex = [Abs(N, mode="full"),
+                                      AbsSquared(N),
+                                      ElectroOpticActivation(N, **eo_settings),
+                                      SPMActivation(N, 1),
+                                      LinearMask(N, mask=np.random.rand(N)),
+                                      bpReLU(N, cutoff=0.5, alpha=0.1),
+                                      modReLU(N, cutoff=0.5),
+                                      cReLU(N),
+                                      zReLU(N)]
+
+            # nonlinearities that may only be applied to real inputs
+            nonlinearities_real = [SoftMax(N)]
+
+            for nonlinearity in nonlinearities_complex:
 
                 print("Testing nonlinearity {}".format(nonlinearity))
 
@@ -77,6 +81,35 @@ class TestNonlinearities(NeuropticaTest):
 
                     TestModels.verify_model_gradients(model, X, Y, loss.L, gradients, epsilon=1e-6)
 
+
+            for nonlinearity in nonlinearities_real:
+
+                print("Testing nonlinearity {}".format(nonlinearity))
+
+                batch_size = 6
+                n_samples = batch_size * 4
+
+                X_all = (2 * np.random.rand(N * n_samples) - 1).reshape((N, n_samples))
+                Y_all = np.abs(X_all)
+
+                # Make a single-layer model (must make output real with AbsSquared)
+                model = Sequential([ClementsLayer(N),
+                                    Activation(AbsSquared(N)),
+                                    Activation(nonlinearity)
+                                    ])
+
+                # Use mean squared cost function
+                loss = MeanSquaredError
+
+                for X, Y in Optimizer.make_batches(X_all, Y_all, batch_size):
+                    # Propagate the data forward
+                    Y_hat = model.forward_pass(X)
+                    d_loss = loss.dL(Y_hat, Y)
+
+                    # Compute the backpropagated signals for the model
+                    gradients = model.backward_pass(d_loss)
+
+                    TestModels.verify_model_gradients(model, X, Y, loss.L, gradients, epsilon=1e-6)
 
 
 
