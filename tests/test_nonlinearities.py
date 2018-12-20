@@ -81,7 +81,6 @@ class TestNonlinearities(NeuropticaTest):
 
                     TestModels.verify_model_gradients(model, X, Y, loss.L, gradients, epsilon=1e-6)
 
-
             for nonlinearity in nonlinearities_real:
 
                 print("Testing nonlinearity {}".format(nonlinearity))
@@ -110,8 +109,6 @@ class TestNonlinearities(NeuropticaTest):
                     gradients = model.backward_pass(d_loss)
 
                     TestModels.verify_model_gradients(model, X, Y, loss.L, gradients, epsilon=1e-6)
-
-
 
 
 if __name__ == "__main__":
