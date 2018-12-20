@@ -30,7 +30,7 @@ class Nonlinearity:
         raise NotImplementedError('backward_pass() must be overridden in child class!')
 
     def __repr__(self):
-        return type(self).__name__
+        return type(self).__name__ + '(N={})'.format(self.N)
 
 
 class ComplexNonlinearity(Nonlinearity):
