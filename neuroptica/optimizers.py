@@ -134,7 +134,7 @@ class InSituAdam(Optimizer):
                     self.g[component] = np.zeros(component.dof)
 
     def fit(self, data: np.ndarray, labels: np.ndarray, epochs=1000, batch_size=32, show_progress=True, 
-            field_store=True, partial_vectors=True):
+            field_store=False, partial_vectors=False):
         '''
         Fit the model to the labeled data
         :param data: features vector, shape: (n_features, n_samples)
