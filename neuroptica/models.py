@@ -23,6 +23,7 @@ class Model(BaseModel):
     '''
 
     def __init__(self):
+        pass
 
 
 class Sequential(BaseModel):
