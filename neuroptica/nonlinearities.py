@@ -170,21 +170,21 @@ class ElectroOpticActivation(ComplexNonlinearity):
     '''
 
     def __init__(self, N, alpha=0.1, responsivity=0.8, area=1.0,
-    			 V_pi=10.0, V_bias=10.0, R=1e3, impedance=120 * np.pi,
-    			 g=None, phi_b=None):
+                 V_pi=10.0, V_bias=10.0, R=1e3, impedance=120 * np.pi,
+                 g=None, phi_b=None):
 
         super().__init__(N, mode="condensed")
 
         self.alpha = alpha
 
         if g is not None and phi_b is not None:
-        	self.g = g
-        	self.phi_b = phi_b
+            self.g = g
+            self.phi_b = phi_b
 
         else:
-	        # Convert into "feedforward phase gain" and "phase bias" parameters
-	        self.g = np.pi * alpha * R * responsivity * area * 1e-12 / 2 / V_pi / impedance
-	        self.phi_b  = np.pi * V_bias / V_pi
+            # Convert into "feedforward phase gain" and "phase bias" parameters
+            self.g = np.pi * alpha * R * responsivity * area * 1e-12 / 2 / V_pi / impedance
+            self.phi_b  = np.pi * V_bias / V_pi
 
 
     def forward_pass(self, Z: np.ndarray):
