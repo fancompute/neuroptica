@@ -29,6 +29,9 @@ class Nonlinearity:
         '''
         raise NotImplementedError('backward_pass() must be overridden in child class!')
 
+    def __repr__(self):
+        return type(self).__name__ + '(N={})'.format(self.N)
+
 
 class ComplexNonlinearity(Nonlinearity):
     '''
@@ -253,35 +256,20 @@ class AbsSquared(ComplexNonlinearity):
 class SoftMax(Nonlinearity):
 
     def forward_pass(self, X: np.ndarray):
-        X = np.abs(X)
         return np.exp(X) / np.sum(np.exp(X), axis=0)
 
     def backward_pass(self, gamma: np.ndarray, Z: np.ndarray):
-        Z = np.abs(Z)
         softmax = np.exp(Z) / np.sum(np.exp(Z), axis=0)
 
         n_features, n_samples = Z.shape
-        total_derivs = np.zeros(Z.shape)
+        total_derivs = np.zeros(Z.shape, dtype=NP_COMPLEX)
 
         for i in range(n_samples):
             s = softmax[:, i].reshape(-1, 1)
             jac = np.diagflat(s) - np.dot(s, s.T)
             total_derivs[:, i] = jac.T @ gamma[:, i]
 
-        # todo: why is this not working?
         return total_derivs
-
-    # def df_dr(self, r: np.ndarray, phi: np.ndarray):
-    #     # return np.exp(r) / np.sum(np.exp(r), axis=0) - np.exp(2 * r) / (np.sum(np.exp(r), axis=0) ** 2)
-    #     expsum = np.sum(np.exp(r), axis=0)
-    #
-    #     # softmax = np.exp(r) / np.sum(np.exp(r), axis=0)
-    #     # return softmax * (1 - softmax)
-    #     ret = np.exp(r) * (expsum - np.exp(r)) / expsum ** 2
-    #     return ret
-    #
-    # def df_dphi(self, r: np.ndarray, phi: np.ndarray):
-    #     return 0 * phi
 
 
 class LinearMask(ComplexNonlinearity):
