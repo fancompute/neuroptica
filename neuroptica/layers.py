@@ -143,7 +143,7 @@ class ClementsLayer(OpticalMeshNetworkLayer):
                 output_back = np.dot(self.mesh.layers[0].get_transfer_matrix().T, self.mesh.adjoint_fields[-1][-1])
                 return output_back
             else:
-                ValueError("Field_store will not work in this case, please set to False")
+                raise ValueError("Field_store will not work in this case, please set to False")
 
 
 class ReckLayer(OpticalMeshNetworkLayer):

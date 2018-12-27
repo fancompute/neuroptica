@@ -23,7 +23,6 @@ class Model(BaseModel):
     '''
 
     def __init__(self):
-        np.random.seed(1)
 
 
 class Sequential(BaseModel):
