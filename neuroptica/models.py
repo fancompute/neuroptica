@@ -41,16 +41,16 @@ class Sequential(BaseModel):
     def __repr__(self):
         return "<Sequential Model: {}>".format([layer.__name__ for layer in self.layers])
 
-    def forward_pass(self, X: np.ndarray, field_store=False, partial_vectors=False) -> np.ndarray:
+    def forward_pass(self, X: np.ndarray, field_store=False, use_partial_vectors=False) -> np.ndarray:
         X_out = X
         for layer in self.layers:
             if isinstance(layer, OpticalMeshNetworkLayer):
-                X_out = layer.forward_pass(X_out, field_store=field_store, partial_vectors=partial_vectors)
+                X_out = layer.forward_pass(X_out, field_store=field_store, use_partial_vectors=use_partial_vectors)
             else:
                 X_out = layer.forward_pass(X_out)
         return X_out
 
-    def backward_pass(self, d_loss: np.ndarray, field_store=False, partial_vectors=False) -> Dict[str, np.ndarray]:
+    def backward_pass(self, d_loss: np.ndarray, field_store=False, use_partial_vectors=False) -> Dict[str, np.ndarray]:
         '''
         Returns the gradients for each layer resulting from backpropagating from derivative loss function d_loss
         :param d_loss: derivative of the loss function of the outputs
@@ -60,7 +60,7 @@ class Sequential(BaseModel):
         gradients = {"output": d_loss}
         for layer in reversed(self.layers):
             if isinstance(layer, OpticalMeshNetworkLayer):
-                backprop_signal = layer.backward_pass(backprop_signal, field_store=field_store, partial_vectors=partial_vectors)
+                backprop_signal = layer.backward_pass(backprop_signal, field_store=field_store, use_partial_vectors=use_partial_vectors)
             else:
                 backprop_signal = layer.backward_pass(backprop_signal)
             

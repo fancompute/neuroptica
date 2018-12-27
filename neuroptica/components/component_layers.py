@@ -277,7 +277,7 @@ class OpticalMesh:
             partial_transfer_matrices.append(Ttotal)
         return partial_transfer_matrices
 
-    def compute_phase_shifter_fields(self, X: np.ndarray, align="right", partial_vectors=False) -> List[List[np.ndarray]]:
+    def compute_phase_shifter_fields(self, X: np.ndarray, align="right", use_partial_vectors=False) -> List[List[np.ndarray]]:
         '''
         Compute the foward-pass field at the left/right of each phase shifter in the mesh
         :param X: input field to the mesh
@@ -291,7 +291,7 @@ class OpticalMesh:
         for layer in self.layers:
 
             if isinstance(layer, MZILayer):
-                if partial_vectors:
+                if use_partial_vectors:
                     (partial_transfer_vectors, inds_mn) = layer.get_partial_transfer_vectors(backward=False, cumulative=True)
                     bs1_T, theta_T, bs2_T, phi_T = partial_transfer_vectors
 
@@ -332,7 +332,7 @@ class OpticalMesh:
         return fields
 
     def compute_adjoint_phase_shifter_fields(self, delta: np.ndarray, align="right", 
-                partial_vectors=False) -> List[List[np.ndarray]]:
+                use_partial_vectors=False) -> List[List[np.ndarray]]:
         '''
         Compute the backward-pass field at the left/right of each phase shifter in the mesh
         :param delta: input adjoint field to the mesh
@@ -347,7 +347,7 @@ class OpticalMesh:
         for layer in reversed(self.layers):
 
             if isinstance(layer, MZILayer):
-                if partial_vectors:
+                if use_partial_vectors:
                     (partial_transfer_vectors_inv, inds_mn) = layer.get_partial_transfer_vectors(backward=True, cumulative=True)
                     phi_T_inv, bs2_T_inv, theta_T_inv, bs1_T_inv = partial_transfer_vectors_inv
 
@@ -392,14 +392,14 @@ class OpticalMesh:
     def adjoint_optimize(self, forward_field: np.ndarray, adjoint_field: np.ndarray,
                          update_fn: Callable,  # update function takes a float and possibly other args and returns float
                          accumulator: Callable[[np.ndarray], float] = np.mean,
-                         dry_run=False, field_store=False, partial_vectors=False):
+                         dry_run=False, field_store=False, use_partial_vectors=False):
 
         if field_store:
             forward_fields = self.forward_fields
             adjoint_fields = self.adjoint_fields
         else:
-            forward_fields = self.compute_phase_shifter_fields(forward_field, align="right", partial_vectors=partial_vectors)
-            adjoint_fields = self.compute_adjoint_phase_shifter_fields(adjoint_field, align="right", partial_vectors=partial_vectors)
+            forward_fields = self.compute_phase_shifter_fields(forward_field, align="right", use_partial_vectors=use_partial_vectors)
+            adjoint_fields = self.compute_adjoint_phase_shifter_fields(adjoint_field, align="right", use_partial_vectors=use_partial_vectors)
 
         gradient_dict = {}
 
@@ -438,15 +438,15 @@ class OpticalMesh:
             return gradient_dict
 
     def compute_gradients(self, forward_field: np.ndarray, adjoint_field: np.ndarray, 
-                field_store=False, partial_vectors=False) \
+                field_store=False, use_partial_vectors=False) \
             -> Dict[Type[OpticalComponent], np.ndarray]:
 
         if field_store:
             forward_fields = self.forward_fields
             adjoint_fields = self.adjoint_fields
         else:
-            forward_fields = self.compute_phase_shifter_fields(forward_field, align="right", partial_vectors=partial_vectors)
-            adjoint_fields = self.compute_adjoint_phase_shifter_fields(adjoint_field, align="right", partial_vectors=partial_vectors)
+            forward_fields = self.compute_phase_shifter_fields(forward_field, align="right", use_partial_vectors=use_partial_vectors)
+            adjoint_fields = self.compute_adjoint_phase_shifter_fields(adjoint_field, align="right", use_partial_vectors=use_partial_vectors)
 
         gradients = {}
 
