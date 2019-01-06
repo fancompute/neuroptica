@@ -3,7 +3,6 @@ from autograd import jacobian
 
 from neuroptica.settings import NP_COMPLEX
 
-
 class Nonlinearity:
 
     def __init__(self, N):
@@ -16,7 +15,7 @@ class Nonlinearity:
         self.jacobian_im = jacobian(self._forward_pass_im)
 
     def __repr__(self):
-        return type(self).__name__
+        return type(self).__name__ + '(N={})'.format(self.N)
 
     def forward_pass(self, X: np.ndarray) -> np.ndarray:
         '''
@@ -26,32 +25,14 @@ class Nonlinearity:
         '''
         raise NotImplementedError('forward_pass() must be overridden in child class!')
 
+
     def _forward_pass_re(self, X: np.ndarray) -> np.ndarray:
         return np.real(self.forward_pass)
 
-    def __repr__(self):
-        return type(self).__name__ + '(N={})'.format(self.N)
-
-
-class ComplexNonlinearity(Nonlinearity):
-    '''
-    Base class for a complex-valued nonlinearity
-    '''
-
-    def __init__(self, N, holomorphic=False, mode="condensed"):
-        '''
-        Initialize the nonlinearity
-        :param N: dimensionality of the nonlinear function
-        :param holomorphic: whether the function is holomorphic
-        :param mode: for nonholomorphic functions, can be "full", "condensed", or "polar". Full requires that you
-        specify 4 derivatives for d{Re,Im}/d{Re,Im}, condensed requires only df/d{Re,Im}, and polar takes Z=re^iphi
-        '''
-        super().__init__(N)
-        self.holomorphic = holomorphic  # Whether the function is holomorphic
-        self.mode = mode  # Whether to fully expand to du/da or to use df/da
 
     def _forward_pass_im(self, X: np.ndarray) -> np.ndarray:
         return np.imag(self.forward_pass)
+
 
     def backward_pass(self, gamma: np.ndarray, Z: np.ndarray) -> np.ndarray:
         '''
@@ -77,7 +58,8 @@ class ComplexNonlinearity(Nonlinearity):
             total_derivs[:, i] = jac_re.T @ gamma_re + jac_im.T @ gamma_im
         return total_derivs
 
-class SPMActivation(ComplexNonlinearity):
+
+class SPMActivation(Nonlinearity):
     '''
     Lossless SPM activation function
 
@@ -89,6 +71,7 @@ class SPMActivation(ComplexNonlinearity):
         super().__init__(N)
         self.gain = gain
 
+
     def forward_pass(self, Z: np.ndarray):
         gain = self.gain
         phase = gain * np.square(np.abs(Z))
@@ -98,7 +81,7 @@ class SPMActivation(ComplexNonlinearity):
         return real_part + 1j * imag_part
 
 
-class ElectroOpticActivation(ComplexNonlinearity):
+class ElectroOpticActivation(Nonlinearity):
     '''
     Electro-optic activation function with intensity modulation (remod). 
 
@@ -141,7 +124,7 @@ class ElectroOpticActivation(ComplexNonlinearity):
         return 1j * np.sqrt(1-alpha) * np.exp(-1j*0.5*g*np.square(np.abs(Z)) - 1j*0.5*phi_b) * np.cos(0.5*g*np.square(np.abs(Z)) + 0.5*phi_b) * Z
 
 
-class Abs(ComplexNonlinearity):
+class Abs(Nonlinearity):
     '''
     Represents a transformation z -> |z|. This can be called in any of "full", "condensed", and "polar" modes
     '''
@@ -152,7 +135,8 @@ class Abs(ComplexNonlinearity):
     def forward_pass(self, X: np.ndarray):
         return np.abs(X)
 
-class AbsSquared(ComplexNonlinearity):
+
+class AbsSquared(Nonlinearity):
 
     def __init__(self, N):
         super().__init__(N)
@@ -160,7 +144,8 @@ class AbsSquared(ComplexNonlinearity):
     def forward_pass(self, X: np.ndarray):
         return np.abs(X) ** 2
 
-class SoftMax(ComplexNonlinearity):
+
+class SoftMax(Nonlinearity):
 
     def __init__(self, N):
         super().__init__(N)
@@ -169,7 +154,7 @@ class SoftMax(ComplexNonlinearity):
         return np.exp(X) / np.sum(np.exp(X), axis=0)
 
 
-class LinearMask(ComplexNonlinearity):
+class LinearMask(Nonlinearity):
     '''Technically not a nonlinearity: apply a linear gain/loss to each element'''
 
     def __init__(self, N: int, mask=None):
@@ -183,7 +168,7 @@ class LinearMask(ComplexNonlinearity):
         return (X.T * self.mask).T
 
 
-class bpReLU(ComplexNonlinearity):
+class bpReLU(Nonlinearity):
     '''
     Discontinuous (but holomorphic and backpropable) ReLU
     f(x_i) = alpha * x_i   if |x_i| <   cutoff
@@ -203,7 +188,7 @@ class bpReLU(ComplexNonlinearity):
         return (np.abs(X) >= self.cutoff) * X + (np.abs(X) < self.cutoff) * self.alpha * X
 
 
-class modReLU(ComplexNonlinearity):
+class modReLU(Nonlinearity):
     '''
     Contintous, but non-holomorphic and non-simply backpropabable ReLU of the form
     f(z) = (|z| - cutoff) * z / |z| if |z| >= cutoff (else 0)
@@ -221,7 +206,7 @@ class modReLU(ComplexNonlinearity):
         return (np.abs(X) >= self.cutoff) * ( np.abs(X) - self.cutoff ) * X / np.abs(X)
 
 
-class cReLU(ComplexNonlinearity):
+class cReLU(Nonlinearity):
     '''
     Contintous, but non-holomorphic and non-simply backpropabable ReLU of the form
     f(z) = ReLU(Re{z}) + 1j * ReLU(Im{z})
@@ -236,7 +221,7 @@ class cReLU(ComplexNonlinearity):
         return (X_re > 0) * X_re + 1j * (X_im > 0) * X_im
 
 
-class zReLU(ComplexNonlinearity):
+class zReLU(Nonlinearity):
     '''
     Contintous, but non-holomorphic and non-simply backpropabable ReLU of the form
     f(z) = z if Re{z} > 0 and Im{z} > 0, else 0
