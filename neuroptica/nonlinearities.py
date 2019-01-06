@@ -29,6 +29,27 @@ class Nonlinearity:
     def _forward_pass_re(self, X: np.ndarray) -> np.ndarray:
         return np.real(self.forward_pass)
 
+    def __repr__(self):
+        return type(self).__name__ + '(N={})'.format(self.N)
+
+
+class ComplexNonlinearity(Nonlinearity):
+    '''
+    Base class for a complex-valued nonlinearity
+    '''
+
+    def __init__(self, N, holomorphic=False, mode="condensed"):
+        '''
+        Initialize the nonlinearity
+        :param N: dimensionality of the nonlinear function
+        :param holomorphic: whether the function is holomorphic
+        :param mode: for nonholomorphic functions, can be "full", "condensed", or "polar". Full requires that you
+        specify 4 derivatives for d{Re,Im}/d{Re,Im}, condensed requires only df/d{Re,Im}, and polar takes Z=re^iphi
+        '''
+        super().__init__(N)
+        self.holomorphic = holomorphic  # Whether the function is holomorphic
+        self.mode = mode  # Whether to fully expand to du/da or to use df/da
+
     def _forward_pass_im(self, X: np.ndarray) -> np.ndarray:
         return np.imag(self.forward_pass)
 
@@ -145,7 +166,6 @@ class SoftMax(Nonlinearity):
         super().__init__(N)
 
     def forward_pass(self, X: np.ndarray):
-        X = np.abs(X)
         return np.exp(X) / np.sum(np.exp(X), axis=0)
 
 
