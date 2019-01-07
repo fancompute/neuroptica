@@ -21,7 +21,7 @@ class TestNonlinearities(NeuropticaTest):
             backward_results = []
 
             for mode in ["full", "condensed", "polar"]:
-                a = Abs(N, mode=mode)
+                a = Abs(N)
                 back = a.backward_pass(gamma, Z_back)
                 backward_results.append(back)
 
@@ -40,8 +40,7 @@ class TestNonlinearities(NeuropticaTest):
                             'R':        2e5 }
 
             # nonlinearities that may be applied to complex outpus
-            nonlinearities_complex = [Abs(N, mode="full"),
-                                      SoftMax(N),
+            nonlinearities_complex = [Abs(N),
                                       AbsSquared(N),
                                       ElectroOpticActivation(N, **eo_settings),
                                       SPMActivation(N, 1),
@@ -80,7 +79,7 @@ class TestNonlinearities(NeuropticaTest):
                     # Compute the backpropagated signals for the model
                     gradients = model.backward_pass(d_loss)
 
-                    TestModels.verify_model_gradients(model, X, Y, loss.L, gradients, epsilon=1e-6)
+                    TestModels.verify_model_gradients(model, X, Y, loss.L, gradients, epsilon=1e-2)
 
             for nonlinearity in nonlinearities_real:
 
@@ -109,7 +108,7 @@ class TestNonlinearities(NeuropticaTest):
                     # Compute the backpropagated signals for the model
                     gradients = model.backward_pass(d_loss)
 
-                    TestModels.verify_model_gradients(model, X, Y, loss.L, gradients, epsilon=1e-6)
+                    TestModels.verify_model_gradients(model, X, Y, loss.L, gradients, epsilon=1e-9)
 
 
 if __name__ == "__main__":

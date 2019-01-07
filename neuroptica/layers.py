@@ -1,7 +1,7 @@
 import numpy as np
 
 from neuroptica.components.component_layers import MZILayer, OpticalMesh, PhaseShifterLayer
-from neuroptica.nonlinearities import ComplexNonlinearity
+from neuroptica.nonlinearities import Nonlinearity
 from neuroptica.settings import NP_COMPLEX
 
 
@@ -63,7 +63,7 @@ class Activation(NetworkLayer):
     X is output, input for next linear layer)
     '''
 
-    def __init__(self, nonlinearity: ComplexNonlinearity):
+    def __init__(self, nonlinearity: Nonlinearity):
         super().__init__(nonlinearity.N, nonlinearity.N)
         self.nonlinearity = nonlinearity
 

@@ -16,7 +16,7 @@ class TestModels(NeuropticaTest):
     @staticmethod
     def verify_model_gradients(model: Sequential, X: np.ndarray, Y: np.ndarray,
                                loss_fn: Callable[[np.ndarray, np.ndarray], np.ndarray],
-                               deltas: Dict[str, np.ndarray], epsilon=1e-6, decimal=4):
+                               deltas: Dict[str, np.ndarray], epsilon=1e-6, decimal=2):
 
         # Set initial backprop signal to d_loss
         delta_prev = deltas["output"]

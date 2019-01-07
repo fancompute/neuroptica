@@ -23,6 +23,7 @@ setuptools.setup(
         "scipy",
         "numba",
         "SchemDraw",
-        "tqdm"
+        "tqdm",
+        "autograd"
     ],
 )
