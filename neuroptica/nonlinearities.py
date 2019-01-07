@@ -130,6 +130,7 @@ class SPMActivation(ComplexNonlinearity):
     ---------------
         phase_gain [ rad/(V^2/m^2) ] : The amount of phase shift per unit input "power"
     '''
+
     def __init__(self, N, gain):
         super().__init__(N, mode="condensed")
         self.gain = gain
@@ -306,6 +307,7 @@ class bpReLU(ComplexNonlinearity):
         cutoff: value of input |x_i| above which to fully transmit, below which to attentuate
         alpha: attenuation factor f(x_i) = f
     '''
+
     def __init__(self, N, cutoff=1, alpha=0):
         super().__init__(N, holomorphic=True)
         self.cutoff = cutoff
@@ -328,15 +330,16 @@ class modReLU(ComplexNonlinearity):
     ----------
         cutoff: value of input |x_i| above which to
     '''
+
     def __init__(self, N, cutoff=1):
         super().__init__(N, holomorphic=False, mode="polar")
         self.cutoff = cutoff
 
     def forward_pass(self, X: np.ndarray):
-        return (np.abs(X) >= self.cutoff) * ( np.abs(X) - self.cutoff ) * X / np.abs(X)
+        return (np.abs(X) >= self.cutoff) * (np.abs(X) - self.cutoff) * X / np.abs(X)
 
     def df_dr(self, r: np.ndarray, phi: np.ndarray):
-        return (r >= self.cutoff) *  np.exp(1j * phi)
+        return (r >= self.cutoff) * np.exp(1j * phi)
 
     def df_dphi(self, r: np.ndarray, phi: np.ndarray):
         return (r >= self.cutoff) * 1j * (r - self.cutoff) * np.exp(1j * phi)
@@ -348,6 +351,7 @@ class cReLU(ComplexNonlinearity):
     f(z) = ReLU(Re{z}) + 1j * ReLU(Im{z})
     see: https://arxiv.org/pdf/1705.09792.pdf
     '''
+
     def __init__(self, N):
         super().__init__(N, holomorphic=False, mode="condensed")
 
@@ -369,6 +373,7 @@ class zReLU(ComplexNonlinearity):
     f(z) = z if Re{z} > 0 and Im{z} > 0, else 0
     see: https://arxiv.org/pdf/1705.09792.pdf
     '''
+
     def __init__(self, N):
         super().__init__(N, holomorphic=False, mode="condensed")
 

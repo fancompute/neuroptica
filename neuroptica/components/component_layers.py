@@ -119,7 +119,7 @@ class MZILayer(ComponentLayer):
         return np.array(partial_transfer_matrices)
 
     def get_partial_transfer_vectors(self, backward=False, cumulative=True,
-                                      add_uncertainties=False) -> np.ndarray:
+                                     add_uncertainties=False) -> np.ndarray:
         Ttot = np.array([np.ones((self.N,), dtype=NP_COMPLEX), np.zeros((self.N,), dtype=NP_COMPLEX)])
         partial_transfer_vectors = []
         inds_mn = np.arange(self.N)
@@ -158,15 +158,14 @@ class MZILayer(ComponentLayer):
                 Tvec[0][n] = U[1, 1]
 
             if cumulative:
-                t1 = Tvec[0, :]*Ttot[0, :] + Tvec[1, :]*Ttot[1, inds_mn]
-                t2 = Tvec[0, :]*Ttot[1, :] + Tvec[1, :]*Ttot[0, inds_mn]
+                t1 = Tvec[0, :] * Ttot[0, :] + Tvec[1, :] * Ttot[1, inds_mn]
+                t2 = Tvec[0, :] * Ttot[1, :] + Tvec[1, :] * Ttot[0, inds_mn]
                 Ttot = np.vstack((t1, t2))
                 partial_transfer_vectors.append(Ttot)
             else:
                 partial_transfer_vectors.append(Tvec)
 
         return (partial_transfer_vectors, inds_mn)
-
 
     @staticmethod
     @jit(nopython=True, nogil=True, parallel=True)
@@ -277,7 +276,7 @@ class OpticalMesh:
         return partial_transfer_matrices
 
     def compute_phase_shifter_fields(self, X: np.ndarray, align="right", use_partial_vectors=False, include_bs=False) -> \
-    List[List[np.ndarray]]:
+            List[List[np.ndarray]]:
         '''
         Compute the foward-pass field at the left/right of each phase shifter in the mesh
         :param X: input field to the mesh
@@ -293,20 +292,21 @@ class OpticalMesh:
             if isinstance(layer, MZILayer):
                 if use_partial_vectors:
                     if include_bs: raise NotImplementedError
-                    (partial_transfer_vectors, inds_mn) = layer.get_partial_transfer_vectors(backward=False, cumulative=True)
+                    (partial_transfer_vectors, inds_mn) = layer.get_partial_transfer_vectors(backward=False,
+                                                                                             cumulative=True)
                     bs1_T, theta_T, bs2_T, phi_T = partial_transfer_vectors
 
                     if align == "right":
-                        fields1 = theta_T[0, :][:, None]*X_current + theta_T[1, :][:, None]*X_current[inds_mn, :]
-                        fields2 = phi_T[0, :][:, None]*X_current + phi_T[1, :][:, None]*X_current[inds_mn, :]
+                        fields1 = theta_T[0, :][:, None] * X_current + theta_T[1, :][:, None] * X_current[inds_mn, :]
+                        fields2 = phi_T[0, :][:, None] * X_current + phi_T[1, :][:, None] * X_current[inds_mn, :]
                         fields.append([fields1, fields2])
                     elif align == "left":
-                        fields1 = bs1_T[0, :][:, None]*X_current + bs1_T[1, :][:, None]*X_current[inds_mn, :]
-                        fields2 = bs2_T[0, :][:, None]*X_current + bs2_T[1, :][:, None]*X_current[inds_mn, :]
+                        fields1 = bs1_T[0, :][:, None] * X_current + bs1_T[1, :][:, None] * X_current[inds_mn, :]
+                        fields2 = bs2_T[0, :][:, None] * X_current + bs2_T[1, :][:, None] * X_current[inds_mn, :]
                         fields.append([fields1, fields2])
                     else:
                         raise ValueError('align must be "left" or "right"!')
-                    X_current = phi_T[0, :][:, None]*X_current + phi_T[1, :][:, None]*X_current[inds_mn, :]
+                    X_current = phi_T[0, :][:, None] * X_current + phi_T[1, :][:, None] * X_current[inds_mn, :]
                 else:
                     partial_transfer_matrices = layer.get_partial_transfer_matrices(backward=False, cumulative=True)
                     bs1_T, theta_T, bs2_T, phi_T = partial_transfer_matrices
@@ -358,19 +358,24 @@ class OpticalMesh:
 
             if isinstance(layer, MZILayer):
                 if use_partial_vectors:
-                    (partial_transfer_vectors_inv, inds_mn) = layer.get_partial_transfer_vectors(backward=True, cumulative=True)
+                    (partial_transfer_vectors_inv, inds_mn) = layer.get_partial_transfer_vectors(backward=True,
+                                                                                                 cumulative=True)
                     phi_T_inv, bs2_T_inv, theta_T_inv, bs1_T_inv = partial_transfer_vectors_inv
 
                     if align == "right":
-                        fields2 = bs2_T_inv[0, :][:, None]*delta_current + bs2_T_inv[1, :][:, None]*delta_current[inds_mn, :]
+                        fields2 = bs2_T_inv[0, :][:, None] * delta_current + bs2_T_inv[1, :][:, None] * delta_current[
+                                                                                                        inds_mn, :]
                         adjoint_fields.append([np.copy(delta_current), fields2])
                     elif align == "left":
-                        fields1 = phi_T_inv[0, :][:, None]*delta_current + phi_T_inv[1, :][:, None]*delta_current[inds_mn, :]
-                        fields2 = theta_T_inv[0, :][:, None]*delta_current + theta_T_inv[1, :][:, None]*delta_current[inds_mn, :]
+                        fields1 = phi_T_inv[0, :][:, None] * delta_current + phi_T_inv[1, :][:, None] * delta_current[
+                                                                                                        inds_mn, :]
+                        fields2 = theta_T_inv[0, :][:, None] * delta_current + theta_T_inv[1, :][:,
+                                                                               None] * delta_current[inds_mn, :]
                         adjoint_fields.append([fields1, fields2])
                     else:
                         raise ValueError('align must be "left" or "right"!')
-                    delta_current = bs1_T_inv[0, :][:, None]*delta_current + bs1_T_inv[1, :][:, None]*delta_current[inds_mn, :]
+                    delta_current = bs1_T_inv[0, :][:, None] * delta_current + bs1_T_inv[1, :][:, None] * delta_current[
+                                                                                                          inds_mn, :]
 
                 else:
                     partial_transfer_matrices_inv = layer.get_partial_transfer_matrices(backward=True, cumulative=True)
@@ -408,8 +413,10 @@ class OpticalMesh:
             forward_fields = self.forward_fields
             adjoint_fields = self.adjoint_fields
         else:
-            forward_fields = self.compute_phase_shifter_fields(forward_field, align="right", use_partial_vectors=use_partial_vectors)
-            adjoint_fields = self.compute_adjoint_phase_shifter_fields(adjoint_field, align="right", use_partial_vectors=use_partial_vectors)
+            forward_fields = self.compute_phase_shifter_fields(forward_field, align="right",
+                                                               use_partial_vectors=use_partial_vectors)
+            adjoint_fields = self.compute_adjoint_phase_shifter_fields(adjoint_field, align="right",
+                                                                       use_partial_vectors=use_partial_vectors)
 
         gradient_dict = {}
 
@@ -455,8 +462,10 @@ class OpticalMesh:
             forward_fields = self.forward_fields
             adjoint_fields = self.adjoint_fields
         else:
-            forward_fields = self.compute_phase_shifter_fields(forward_field, align="right", use_partial_vectors=use_partial_vectors)
-            adjoint_fields = self.compute_adjoint_phase_shifter_fields(adjoint_field, align="right", use_partial_vectors=use_partial_vectors)
+            forward_fields = self.compute_phase_shifter_fields(forward_field, align="right",
+                                                               use_partial_vectors=use_partial_vectors)
+            adjoint_fields = self.compute_adjoint_phase_shifter_fields(adjoint_field, align="right",
+                                                                       use_partial_vectors=use_partial_vectors)
 
         gradients = {}
 

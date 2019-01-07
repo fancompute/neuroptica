@@ -30,6 +30,7 @@ class Sequential(BaseModel):
     '''
     Feed-foward model class similar to the Keras Sequential() model class
     '''
+
     def __init__(self, layers: List[NetworkLayer]):
         self.layers = layers
         self.input_cache = {}
@@ -61,9 +62,10 @@ class Sequential(BaseModel):
         gradients = {"output": d_loss}
         for layer in reversed(self.layers):
             if isinstance(layer, OpticalMeshNetworkLayer):
-                backprop_signal = layer.backward_pass(backprop_signal, field_store=field_store, use_partial_vectors=use_partial_vectors)
+                backprop_signal = layer.backward_pass(backprop_signal, field_store=field_store,
+                                                      use_partial_vectors=use_partial_vectors)
             else:
                 backprop_signal = layer.backward_pass(backprop_signal)
-            
+
             gradients[layer.__name__] = backprop_signal
         return gradients
