@@ -46,7 +46,6 @@ class Beamsplitter(OpticalComponent):
         return np.copy(_B)
 
 
-
 class PhaseShifter(OpticalComponent):
     '''
     Single-mode phase shifter
@@ -97,8 +96,7 @@ class MZI(OpticalComponent):
             [1j * (np.exp(1j * theta) + 1), 1 - np.exp(1j * theta)]
         ], dtype=NP_COMPLEX)
 
-    def get_partial_transfer_matrices(self, backward=False, cumulative=True,
-                                      add_uncertainties=False) -> np.ndarray:
+    def get_partial_transfer_matrices(self, backward=False, cumulative=True, add_uncertainties=False) -> np.ndarray:
 
         if add_uncertainties:
             phi = self.phi + np.random.normal(0, self.phase_uncert)

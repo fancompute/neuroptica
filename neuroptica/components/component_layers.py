@@ -74,8 +74,7 @@ class MZILayer(ComponentLayer):
             T[n][n] = U[1, 1]
         return T
 
-    def get_partial_transfer_matrices(self, backward=False, cumulative=True,
-                                      add_uncertainties=False) -> np.ndarray:
+    def get_partial_transfer_matrices(self, backward=False, cumulative=True, add_uncertainties=False) -> np.ndarray:
         '''Return a list of 4 partial transfer matrices for the entire MZI layer corresponding to (1) after first BS in
         each MZI, (2) after theta shifter, (3) after second BS, and (4) after phi shifter. Order is reversed in the
         backwards case'''
@@ -277,7 +276,8 @@ class OpticalMesh:
             partial_transfer_matrices.append(Ttotal)
         return partial_transfer_matrices
 
-    def compute_phase_shifter_fields(self, X: np.ndarray, align="right", use_partial_vectors=False) -> List[List[np.ndarray]]:
+    def compute_phase_shifter_fields(self, X: np.ndarray, align="right", use_partial_vectors=False, include_bs=False) -> \
+    List[List[np.ndarray]]:
         '''
         Compute the foward-pass field at the left/right of each phase shifter in the mesh
         :param X: input field to the mesh
@@ -292,6 +292,7 @@ class OpticalMesh:
 
             if isinstance(layer, MZILayer):
                 if use_partial_vectors:
+                    if include_bs: raise NotImplementedError
                     (partial_transfer_vectors, inds_mn) = layer.get_partial_transfer_vectors(backward=False, cumulative=True)
                     bs1_T, theta_T, bs2_T, phi_T = partial_transfer_vectors
 
@@ -310,7 +311,16 @@ class OpticalMesh:
                     partial_transfer_matrices = layer.get_partial_transfer_matrices(backward=False, cumulative=True)
                     bs1_T, theta_T, bs2_T, phi_T = partial_transfer_matrices
                     if align == "right":
-                        fields.append([np.dot(theta_T, X_current), np.dot(phi_T, X_current)])
+                        if include_bs:
+                            fields.append([np.dot(bs1_T, X_current),
+                                           np.dot(theta_T, X_current),
+                                           np.dot(bs2_T, X_current),
+                                           np.dot(phi_T, X_current)])
+                        else:
+                            if include_bs:
+                                raise NotImplementedError
+                            else:
+                                fields.append([np.dot(theta_T, X_current), np.dot(phi_T, X_current)])
                     elif align == "left":
                         fields.append([np.dot(bs1_T, X_current), np.dot(bs2_T, X_current)])
                     else:
@@ -331,8 +341,8 @@ class OpticalMesh:
 
         return fields
 
-    def compute_adjoint_phase_shifter_fields(self, delta: np.ndarray, align="right", 
-                use_partial_vectors=False) -> List[List[np.ndarray]]:
+    def compute_adjoint_phase_shifter_fields(self, delta: np.ndarray, align="right",
+                                             use_partial_vectors=False) -> List[List[np.ndarray]]:
         '''
         Compute the backward-pass field at the left/right of each phase shifter in the mesh
         :param delta: input adjoint field to the mesh
@@ -357,7 +367,7 @@ class OpticalMesh:
                     elif align == "left":
                         fields1 = phi_T_inv[0, :][:, None]*delta_current + phi_T_inv[1, :][:, None]*delta_current[inds_mn, :]
                         fields2 = theta_T_inv[0, :][:, None]*delta_current + theta_T_inv[1, :][:, None]*delta_current[inds_mn, :]
-                        adjoint_fields.append([fields1, fields2])                    
+                        adjoint_fields.append([fields1, fields2])
                     else:
                         raise ValueError('align must be "left" or "right"!')
                     delta_current = bs1_T_inv[0, :][:, None]*delta_current + bs1_T_inv[1, :][:, None]*delta_current[inds_mn, :]
@@ -437,8 +447,8 @@ class OpticalMesh:
         if dry_run:
             return gradient_dict
 
-    def compute_gradients(self, forward_field: np.ndarray, adjoint_field: np.ndarray, 
-                field_store=False, use_partial_vectors=False) \
+    def compute_gradients(self, forward_field: np.ndarray, adjoint_field: np.ndarray,
+                          field_store=False, use_partial_vectors=False) \
             -> Dict[Type[OpticalComponent], np.ndarray]:
 
         if field_store:

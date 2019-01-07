@@ -100,7 +100,7 @@ class InSituGradientDescent(Optimizer):
             losses.append(total_iteration_loss)
 
             if show_progress:
-                iterator.set_description("ℒ = {:.2e}".format(total_iteration_loss), refresh=False)
+                iterator.set_description("ℒ = {:.2f}".format(total_iteration_loss), refresh=False)
 
         return losses
 
@@ -110,13 +110,7 @@ class InSituAdam(Optimizer):
     On-chip training with in-situ backpropagation using adjoint field method and adam optimizer
     '''
 
-    def __init__(self,
-                 model: Sequential,
-                 loss: Type[Loss],
-                 step_size=0.01,
-                 beta1=0.9,
-                 beta2=0.99,
-                 epsilon=1e-8):
+    def __init__(self, model: Sequential, loss: Type[Loss], step_size=0.01, beta1=0.9, beta2=0.99, epsilon=1e-8):
         super().__init__(model, loss)
         self.step_size = step_size
         self.beta1 = beta1
@@ -204,6 +198,6 @@ class InSituAdam(Optimizer):
             losses.append(total_epoch_loss)
 
             if show_progress:
-                iterator.set_description("ℒ = {:.2e}".format(total_epoch_loss), refresh=False)
+                iterator.set_description("ℒ = {:.2f}".format(total_epoch_loss), refresh=False)
 
         return losses

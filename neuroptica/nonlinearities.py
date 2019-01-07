@@ -140,18 +140,18 @@ class SPMActivation(ComplexNonlinearity):
 
     def df_dRe(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
         gain = self.gain
-        Z = a + 1j*b
+        Z = a + 1j * b
         return np.exp(-1j * gain * np.square(np.abs(Z))) * (-2j * np.square(a) * gain + 2 * a * b * gain + 1)
 
     def df_dIm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
         gain = self.gain
-        Z = a + 1j*b
+        Z = a + 1j * b
         return np.exp(-1j * gain * np.square(np.abs(Z))) * (-2j * a * b * gain + 2 * np.square(b) * gain + 1j)
 
 
 class ElectroOpticActivation(ComplexNonlinearity):
     '''
-    Electro-optic activation function with intensity modulation (remod). 
+    Electro-optic activation function with intensity modulation (remod).
 
     This activation can be configured either in terms of its physical parameters, detailed
     below, or directly in terms of the feedforward phase gain, g and the biasing phase, phi_b.
@@ -184,22 +184,26 @@ class ElectroOpticActivation(ComplexNonlinearity):
         else:
             # Convert into "feedforward phase gain" and "phase bias" parameters
             self.g = np.pi * alpha * R * responsivity * area * 1e-12 / 2 / V_pi / impedance
-            self.phi_b  = np.pi * V_bias / V_pi
-
+            self.phi_b = np.pi * V_bias / V_pi
 
     def forward_pass(self, Z: np.ndarray):
         alpha, g, phi_b = self.alpha, self.g, self.phi_b
-        return 1j * np.sqrt(1-alpha) * np.exp(-1j*0.5*g*np.square(np.abs(Z)) - 1j*0.5*phi_b) * np.cos(0.5*g*np.square(np.abs(Z)) + 0.5*phi_b) * Z
+        return 1j * np.sqrt(1 - alpha) * np.exp(-1j * 0.5 * g * np.square(np.abs(Z)) - 1j * 0.5 * phi_b) * np.cos(
+            0.5 * g * np.square(np.abs(Z)) + 0.5 * phi_b) * Z
 
     def df_dRe(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
         # d/da i * sqrt(1-\alpha) * Exp[-i*0.5*(g*(a+i*b)*(a-i*b) + \phi)] * Cos[0.5*(g*(a+i*b)*(a-i*b) + \phi)] * (a+i*b)
         alpha, g, phi_b = self.alpha, self.g, self.phi_b
-        return np.sqrt(1 - alpha) * np.exp((-0.5*1j) * g * (a - 1j*b) * (a + 1j*b) - (0.5*1j)*phi_b)*(a*g*(b - 1j*a)*np.sin(0.5*a**2*g + 0.5*b**2*g + 0.5*phi_b) + (a**2*g + 1j*a*b*g + 1j) * np.cos(0.5*a**2*g + 0.5*b**2*g + 0.5*phi_b))
+        return np.sqrt(1 - alpha) * np.exp((-0.5 * 1j) * g * (a - 1j * b) * (a + 1j * b) - (0.5 * 1j) * phi_b) * (
+                a * g * (b - 1j * a) * np.sin(0.5 * a ** 2 * g + 0.5 * b ** 2 * g + 0.5 * phi_b) + (
+                a ** 2 * g + 1j * a * b * g + 1j) * np.cos(0.5 * a ** 2 * g + 0.5 * b ** 2 * g + 0.5 * phi_b))
 
     def df_dIm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
         # d/db i * sqrt(1-\alpha) * Exp[-i*0.5*(g*(a+i*b)*(a-i*b) + \phi)] * Cos[0.5*(g*(a+i*b)*(a-i*b) + \phi)] * (a+i*b)
         alpha, g, phi_b = self.alpha, self.g, self.phi_b
-        return np.sqrt(1 - alpha) * np.exp((-0.5*1j) * g * (a - 1j*b) * (a + 1j*b) - (0.5*1j)*phi_b)*(b*g*(b - 1j*a)*np.sin(0.5*a**2*g + 0.5*b**2*g + 0.5*phi_b) + (a*b*g + 1j*b**2*g - 1)* np.cos(0.5*a**2*g + 0.5*b**2*g + 0.5*phi_b))
+        return np.sqrt(1 - alpha) * np.exp((-0.5 * 1j) * g * (a - 1j * b) * (a + 1j * b) - (0.5 * 1j) * phi_b) * (
+                b * g * (b - 1j * a) * np.sin(0.5 * a ** 2 * g + 0.5 * b ** 2 * g + 0.5 * phi_b) + (
+                a * b * g + 1j * b ** 2 * g - 1) * np.cos(0.5 * a ** 2 * g + 0.5 * b ** 2 * g + 0.5 * phi_b))
 
 
 class Abs(ComplexNonlinearity):
@@ -322,7 +326,7 @@ class modReLU(ComplexNonlinearity):
 
     Arguments:
     ----------
-        cutoff: value of input |x_i| above which to 
+        cutoff: value of input |x_i| above which to
     '''
     def __init__(self, N, cutoff=1):
         super().__init__(N, holomorphic=False, mode="polar")

@@ -57,6 +57,21 @@ class DropMask(NetworkLayer):
         return delta_back
 
 
+class StaticMatrix(NetworkLayer):
+    '''TODO: make less hacky'''
+
+    def __init__(self, matrix: np.ndarray):
+        N_out, N_in = matrix.shape
+        super().__init__(N_in, N_out)
+        self.matrix = matrix
+
+    def forward_pass(self, X: np.ndarray):
+        return self.matrix @ X
+
+    def backward_pass(self, delta: np.ndarray):
+        return self.matrix.T @ delta
+
+
 class Activation(NetworkLayer):
     '''
     Represents a (nonlinear) activation layer. Note that in this layer, the usage of X and Z are reversed! (Z is input,
