@@ -122,13 +122,28 @@ class ClementsLayer(OpticalMeshNetworkLayer):
 
         self.mesh = OpticalMesh(N, layers)
 
-    def forward_pass(self, X: np.ndarray) -> np.ndarray:
+    def forward_pass(self, X: np.ndarray, field_store=False, use_partial_vectors=False) -> np.ndarray:
         self.input_prev = X
-        self.output_prev = np.dot(self.mesh.get_transfer_matrix(), X)
+        if not field_store:
+            self.output_prev = np.dot(self.mesh.get_transfer_matrix(), X)
+        else:
+            self.mesh.forward_fields = self.mesh.compute_phase_shifter_fields(X, 
+                                                align="right", use_partial_vectors=use_partial_vectors)
+            self.output_prev = np.copy(self.mesh.forward_fields[-1][-1])
+
         return self.output_prev
 
-    def backward_pass(self, delta: np.ndarray) -> np.ndarray:
-        return np.dot(self.mesh.get_transfer_matrix().T, delta)
+    def backward_pass(self, delta: np.ndarray, field_store=False, use_partial_vectors=False) -> np.ndarray:        
+        if not field_store:
+            return np.dot(self.mesh.get_transfer_matrix().T, delta)
+        else:
+            self.mesh.adjoint_fields = self.mesh.compute_adjoint_phase_shifter_fields(delta, 
+                                                align="right", use_partial_vectors=use_partial_vectors)
+            if isinstance(self.mesh.layers[0], PhaseShifterLayer):
+                output_back = np.dot(self.mesh.layers[0].get_transfer_matrix().T, self.mesh.adjoint_fields[-1][-1])
+                return output_back
+            else:
+                raise ValueError("Field_store will not work in this case, please set to False")
 
 
 class ReckLayer(OpticalMeshNetworkLayer):

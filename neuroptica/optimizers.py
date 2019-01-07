@@ -133,7 +133,8 @@ class InSituAdam(Optimizer):
                     self.v[component] = np.zeros(component.dof)
                     self.g[component] = np.zeros(component.dof)
 
-    def fit(self, data: np.ndarray, labels: np.ndarray, epochs=1000, batch_size=32, show_progress=True):
+    def fit(self, data: np.ndarray, labels: np.ndarray, epochs=1000, batch_size=32, show_progress=True, 
+            field_store=False, use_partial_vectors=False):
         '''
         Fit the model to the labeled data
         :param data: features vector, shape: (n_features, n_samples)
@@ -142,6 +143,8 @@ class InSituAdam(Optimizer):
         :param learning_rate:
         :param batch_size:
         :param show_progress:
+        :param field_store: if set to True, will store the fields at the phase shifters on the forward and backward pass
+        :param use_partial_vectors: if set to True, the MZI partial matrices will be stored as Nx2 vectors
         :return:
         '''
 
@@ -163,18 +166,19 @@ class InSituAdam(Optimizer):
                 self.t += 1
 
                 # Propagate the data forward
-                Y_hat = self.model.forward_pass(X)
+                Y_hat = self.model.forward_pass(X, field_store=field_store, use_partial_vectors=use_partial_vectors)
                 d_loss = self.loss.dL(Y_hat, Y)
                 total_epoch_loss += np.sum(self.loss.L(Y_hat, Y))
 
                 # Compute the backpropagated signals for the model
-                deltas = self.model.backward_pass(d_loss)
+                deltas = self.model.backward_pass(d_loss, field_store=field_store, use_partial_vectors=use_partial_vectors)
                 delta_prev = d_loss  # backprop signal to send in the final layer
 
                 # Compute the foward and adjoint fields at each phase shifter in all tunable layers
                 for layer in reversed(self.model.layers):
                     if isinstance(layer, OpticalMeshNetworkLayer):
-                        gradients = layer.mesh.compute_gradients(layer.input_prev, delta_prev)
+                        gradients = layer.mesh.compute_gradients(layer.input_prev, delta_prev, 
+                            field_store=field_store, use_partial_vectors=use_partial_vectors)
                         for cmpt in gradients:
                             self.g[cmpt] = np.mean(gradients[cmpt], axis=-1)
                             self.m[cmpt] = self.beta1 * self.m[cmpt] + (1 - self.beta1) * self.g[cmpt]
