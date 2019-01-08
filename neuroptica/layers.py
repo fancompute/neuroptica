@@ -1,7 +1,7 @@
 import numpy as np
 
 from neuroptica.components.component_layers import MZILayer, OpticalMesh, PhaseShifterLayer
-from neuroptica.nonlinearities import ComplexNonlinearity
+from neuroptica.nonlinearities import Nonlinearity
 from neuroptica.settings import NP_COMPLEX
 
 
@@ -78,7 +78,7 @@ class Activation(NetworkLayer):
     X is output, input for next linear layer)
     '''
 
-    def __init__(self, nonlinearity: ComplexNonlinearity):
+    def __init__(self, nonlinearity: Nonlinearity):
         super().__init__(nonlinearity.N, nonlinearity.N)
         self.nonlinearity = nonlinearity
 
@@ -100,10 +100,10 @@ class OpticalMeshNetworkLayer(NetworkLayer):
         super().__init__(input_size, output_size, initializer=initializer)
         self.mesh: OpticalMesh = None
 
-    def forward_pass(self, X: np.ndarray) -> np.ndarray:
+    def forward_pass(self, X: np.ndarray, cache_fields=False, use_partial_vectors=False) -> np.ndarray:
         raise NotImplementedError('forward_pass() must be overridden in child class!')
 
-    def backward_pass(self, delta: np.ndarray) -> np.ndarray:
+    def backward_pass(self, delta: np.ndarray, cache_fields=False, use_partial_vectors=False) -> np.ndarray:
         raise NotImplementedError('backward_pass() must be overridden in child class!')
 
 
@@ -137,30 +137,27 @@ class ClementsLayer(OpticalMeshNetworkLayer):
 
         self.mesh = OpticalMesh(N, layers)
 
-    def forward_pass(self, X: np.ndarray, field_store=False, use_partial_vectors=False) -> np.ndarray:
+    def forward_pass(self, X: np.ndarray, cache_fields=False, use_partial_vectors=False) -> np.ndarray:
         self.input_prev = X
-        if not field_store:
-            self.output_prev = np.dot(self.mesh.get_transfer_matrix(), X)
-        else:
-            self.mesh.forward_fields = self.mesh.compute_phase_shifter_fields(X,
-                                                                              align="right",
-                                                                              use_partial_vectors=use_partial_vectors)
+        if cache_fields:
+            self.mesh.forward_fields = self.mesh.compute_phase_shifter_fields(
+                X, align="right", use_partial_vectors=use_partial_vectors)
             self.output_prev = np.copy(self.mesh.forward_fields[-1][-1])
+        else:
+            self.output_prev = np.dot(self.mesh.get_transfer_matrix(), X)
 
         return self.output_prev
 
-    def backward_pass(self, delta: np.ndarray, field_store=False, use_partial_vectors=False) -> np.ndarray:
-        if not field_store:
-            return np.dot(self.mesh.get_transfer_matrix().T, delta)
-        else:
-            self.mesh.adjoint_fields = self.mesh.compute_adjoint_phase_shifter_fields(delta,
-                                                                                      align="right",
-                                                                                      use_partial_vectors=use_partial_vectors)
+    def backward_pass(self, delta: np.ndarray, cache_fields=False, use_partial_vectors=False) -> np.ndarray:
+        if cache_fields:
+            self.mesh.adjoint_fields = self.mesh.compute_adjoint_phase_shifter_fields(
+                delta, align="right", use_partial_vectors=use_partial_vectors)
             if isinstance(self.mesh.layers[0], PhaseShifterLayer):
-                output_back = np.dot(self.mesh.layers[0].get_transfer_matrix().T, self.mesh.adjoint_fields[-1][-1])
-                return output_back
+                return np.dot(self.mesh.layers[0].get_transfer_matrix().T, self.mesh.adjoint_fields[-1][-1])
             else:
                 raise ValueError("Field_store will not work in this case, please set to False")
+        else:
+            return np.dot(self.mesh.get_transfer_matrix().T, delta)
 
 
 class ReckLayer(OpticalMeshNetworkLayer):

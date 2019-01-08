@@ -135,7 +135,9 @@ class TestComponents(NeuropticaTest):
             #         self.assert_allclose(component_fields, component_fields_adj)
 
     def test_OpticalMesh_adjoint_optimize(self):
-        for N in [4, 5]:
+        for N in [9, 10]:
+
+            print("Testing numerical gradients for n={}...".format(N))
             # Generate a random unitary matrix and training data
             U = unitary_group.rvs(N)
 

@@ -407,9 +407,9 @@ class OpticalMesh:
     def adjoint_optimize(self, forward_field: np.ndarray, adjoint_field: np.ndarray,
                          update_fn: Callable,  # update function takes a float and possibly other args and returns float
                          accumulator: Callable[[np.ndarray], float] = np.mean,
-                         dry_run=False, field_store=False, use_partial_vectors=False):
+                         dry_run=False, cache_fields=False, use_partial_vectors=False):
 
-        if field_store:
+        if cache_fields:
             forward_fields = self.forward_fields
             adjoint_fields = self.adjoint_fields
         else:
@@ -455,10 +455,10 @@ class OpticalMesh:
             return gradient_dict
 
     def compute_gradients(self, forward_field: np.ndarray, adjoint_field: np.ndarray,
-                          field_store=False, use_partial_vectors=False) \
+                          cache_fields=False, use_partial_vectors=False) \
             -> Dict[Type[OpticalComponent], np.ndarray]:
 
-        if field_store:
+        if cache_fields:
             forward_fields = self.forward_fields
             adjoint_fields = self.adjoint_fields
         else:

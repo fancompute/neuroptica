@@ -32,12 +32,12 @@ class TestNonlinearities(NeuropticaTest):
     def test_OpticalMesh_adjoint_optimize(self):
         for N in [4, 5]:
 
-            eo_settings = { 'alpha':      0.05,
-                            'responsivity':      0.80,
-                            'area':         1.00,
-                            'V_pi': 10.0,
-                            'V_bias':      10.0,
-                            'R':        2e5 }
+            eo_settings = {'alpha': 0.05,
+                           'responsivity': 0.80,
+                           'area': 1.00,
+                           'V_pi': 10.0,
+                           'V_bias': 10.0,
+                           'R': 2e5}
 
             # nonlinearities that may be applied to complex outpus
             nonlinearities_complex = [Abs(N, mode="full"),
