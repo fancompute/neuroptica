@@ -26,14 +26,18 @@ class Optimizer:
         :param data: features vector, shape: (n_features, n_samples)
         :param labels: labels vector, shape: (n_label_dim, n_samples)
         :param batch_size: size of the batch
-        :param shuffle: if true, batches will be presented in random order (the data within each batch is not shuffled)
+        :param shuffle: if true, batches will be randomized
         :return: yields a tuple (data_batch, label_batch)
         '''
 
         n_features, n_samples = data.shape
 
         batch_indices = np.arange(0, n_samples, batch_size)
-        if shuffle: np.random.shuffle(batch_indices)
+
+        if shuffle:
+            permutation = np.random.permutation(n_samples)
+            data = data[:, permutation]  # this doesn't overwrite data from outside function call
+            labels = labels[:, permutation]
 
         for i in batch_indices:
             X = data[:, i:i + batch_size]
