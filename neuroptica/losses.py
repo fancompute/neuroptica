@@ -43,7 +43,7 @@ class CategoricalCrossEntropy(Loss):
     @staticmethod
     def L(X: np.ndarray, T: np.ndarray) -> np.ndarray:
         X_softmax = np.exp(X) / np.sum(np.exp(X), axis=0)
-        X_clip = np.clip(X_softmax, 1e-7, 1 - 1e-7)
+        X_clip = np.clip(X_softmax, 1e-9, 1 - 1e-9)
         return -np.sum(T * np.log(X_clip), axis=0)
 
     @staticmethod
@@ -54,3 +54,4 @@ class CategoricalCrossEntropy(Loss):
             return -T / X_clip
         else:
             return np.conj(X - T)
+            # return X - T
