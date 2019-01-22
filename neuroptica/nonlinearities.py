@@ -258,6 +258,16 @@ class AbsSquared(ComplexNonlinearity):
         return 0 * phi
 
 
+class Sigmoid(Nonlinearity):
+
+    def forward_pass(self, X: np.ndarray):
+        return 1 / (1 + np.exp(-X))
+
+    def backward_pass(self, gamma: np.ndarray, Z: np.ndarray):
+        sigma = 1 / (1 + np.exp(-Z))
+        return sigma * (1 - sigma) * gamma
+
+
 class SoftMax(Nonlinearity):
 
     def forward_pass(self, X: np.ndarray):

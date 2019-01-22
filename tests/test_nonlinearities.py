@@ -54,7 +54,8 @@ class TestNonlinearities(NeuropticaTest):
                                       zReLU(N)]
 
             # nonlinearities that may only be applied to real inputs
-            nonlinearities_real = [SoftMax(N)]
+            nonlinearities_real = [SoftMax(N),
+                                   Sigmoid(N)]
 
             for nonlinearity in nonlinearities_complex:
 
