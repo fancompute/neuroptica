@@ -1,3 +1,6 @@
+'''This module contains classes to implement Keras-style Models, which combine several NetworkLayers to simulate a full
+optical neural network. Currently, only sequential models are supported, but more may be added in the future.'''
+
 from typing import Dict, List
 
 import numpy as np
@@ -6,9 +9,7 @@ from neuroptica.layers import NetworkLayer, OpticalMeshNetworkLayer
 
 
 class BaseModel:
-    '''
-    Base class for all models
-    '''
+    '''Base class for all models'''
 
     def forward_pass(self, X: np.ndarray) -> np.ndarray:
         raise NotImplementedError
@@ -22,16 +23,18 @@ class Model(BaseModel):
     Functional model class similar to the Keras model class, simulating an optical neural network with multiple layers
     '''
 
-    def __init__(self):
+    def __init__(self):  # TODO
         pass
 
 
 class Sequential(BaseModel):
-    '''
-    Feed-foward model class similar to the Keras Sequential() model class
-    '''
+    '''Feed-foward model class similar to the Keras Sequential() model class'''
 
     def __init__(self, layers: List[NetworkLayer]):
+        '''
+        Initialize the model
+        :param layers: list of NetworkLayers contained in the optical neural network
+        '''
         self.layers = layers
         self.input_cache = {}
         self.output_cache = {}
@@ -44,6 +47,13 @@ class Sequential(BaseModel):
         return "<Sequential Model: {}>".format([layer.__name__ for layer in self.layers])
 
     def forward_pass(self, X: np.ndarray, cache_fields=False, use_partial_vectors=False) -> np.ndarray:
+        '''
+        Propagate an input field throughout the entire network
+        :param X: input electric fields
+        :param cache_fields: if true, fields will be cached internally
+        :param use_partial_vectors: if true, use the partial vectors method to speed up transfer matrix computation
+        :return: output electric fields (to be fed into a loss function)
+        '''
         X_out = X
         for layer in self.layers:
             if isinstance(layer, OpticalMeshNetworkLayer):
@@ -58,6 +68,8 @@ class Sequential(BaseModel):
         '''
         Returns the gradients for each layer resulting from backpropagating from derivative loss function d_loss
         :param d_loss: derivative of the loss function of the outputs
+        :param cache_fields: if true, fields will be cached internally
+        :param use_partial_vectors: if true, use the partial vectors method to speed up transfer matrix computation
         :return: dictionary of {layer: gradients}
         '''
         backprop_signal = d_loss

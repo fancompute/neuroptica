@@ -1,8 +1,12 @@
+'''This module contains a collection of optimizers for training neuroptica models to fit labeled data. All optimizers
+starting with "InSitu" use the on-chip interferometric gradient calculation routine described in Hughes, et al. (2018),
+"Training of photonic neural networks through in situ backpropagation and gradient measurement".'''
+
 from typing import Tuple, Type
 
 import numpy as np
 
-from neuroptica.components.components import MZI, PhaseShifter
+from neuroptica.components import MZI, PhaseShifter
 from neuroptica.layers import OpticalMeshNetworkLayer
 from neuroptica.losses import Loss
 from neuroptica.models import Sequential

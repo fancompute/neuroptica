@@ -5,11 +5,11 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="neuroptica",
-    version="0.0.0",
+    version="0.1.0",
     author="Ben Bartlett",
     author_email="benbartlett@stanford.edu",
     description="Nanophotonic Neural Network Simulator",
-    license="[None yet]",
+    license="MIT",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/fancompute/neuroptica",
@@ -22,7 +22,6 @@ setuptools.setup(
         "numpy",
         "scipy",
         "numba",
-        "SchemDraw",
         "tqdm"
     ],
 )

@@ -1,3 +1,5 @@
+'''The Losses submodule contains classes for computing common loss functions.'''
+
 import numpy as np
 
 
@@ -36,9 +38,7 @@ class MeanSquaredError(Loss):
 
 
 class CategoricalCrossEntropy(Loss):
-    '''
-    Represents categorical cross entropy with a softmax layer implicitly applied to the outputs
-    '''
+    '''Represents categorical cross entropy with a softmax layer implicitly applied to the outputs'''
 
     @staticmethod
     def L(X: np.ndarray, T: np.ndarray) -> np.ndarray:
@@ -51,14 +51,3 @@ class CategoricalCrossEntropy(Loss):
     def dL(X: np.ndarray, T: np.ndarray) -> np.ndarray:
         X_softmax = np.exp(X) / np.sum(np.exp(X), axis=0)
         return np.conj(X_softmax - T)
-        # gamma_L = X_softmax - T
-        # delta_L = 2 * np.conj(X) * np.real(gamma_L)
-        # return delta_L
-
-        # no_softmax = False  # todo
-        # if no_softmax:
-        #     X_clip = np.clip(X, 1e-7, 1 - 1e-7)
-        #     return -T / X_clip
-        # else:
-        #     return np.conj(X - T)
-        #     # return X - T

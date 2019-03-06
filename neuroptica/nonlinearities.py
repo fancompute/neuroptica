@@ -1,3 +1,7 @@
+'''This module contains a collection of physical and aphysical activation functions. Nonlinearities can be incorporated
+into an optical neural network by using the Activation(nonlinearity) NetworkLayer.'''
+
+
 import numpy as np
 
 from neuroptica.settings import NP_COMPLEX
@@ -193,14 +197,12 @@ class ElectroOpticActivation(ComplexNonlinearity):
             0.5 * g * np.square(np.abs(Z)) + 0.5 * phi_b) * Z
 
     def df_dRe(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
-        # d/da i * sqrt(1-\alpha) * Exp[-i*0.5*(g*(a+i*b)*(a-i*b) + \phi)] * Cos[0.5*(g*(a+i*b)*(a-i*b) + \phi)] * (a+i*b)
         alpha, g, phi_b = self.alpha, self.g, self.phi_b
         return np.sqrt(1 - alpha) * np.exp((-0.5 * 1j) * g * (a - 1j * b) * (a + 1j * b) - (0.5 * 1j) * phi_b) * (
                 a * g * (b - 1j * a) * np.sin(0.5 * a ** 2 * g + 0.5 * b ** 2 * g + 0.5 * phi_b) + (
                 a ** 2 * g + 1j * a * b * g + 1j) * np.cos(0.5 * a ** 2 * g + 0.5 * b ** 2 * g + 0.5 * phi_b))
 
     def df_dIm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
-        # d/db i * sqrt(1-\alpha) * Exp[-i*0.5*(g*(a+i*b)*(a-i*b) + \phi)] * Cos[0.5*(g*(a+i*b)*(a-i*b) + \phi)] * (a+i*b)
         alpha, g, phi_b = self.alpha, self.g, self.phi_b
         return np.sqrt(1 - alpha) * np.exp((-0.5 * 1j) * g * (a - 1j * b) * (a + 1j * b) - (0.5 * 1j) * phi_b) * (
                 b * g * (b - 1j * a) * np.sin(0.5 * a ** 2 * g + 0.5 * b ** 2 * g + 0.5 * phi_b) + (
@@ -244,6 +246,7 @@ class Abs(ComplexNonlinearity):
 
 
 class AbsSquared(ComplexNonlinearity):
+    '''Maps z -> |z|^2, corresponding to power measurement by a photodetector.'''
 
     def __init__(self, N):
         super().__init__(N, holomorphic=False, mode="polar")
@@ -259,6 +262,7 @@ class AbsSquared(ComplexNonlinearity):
 
 
 class Sigmoid(Nonlinearity):
+    '''Sigmoid activation; maps z -> 1 / (1 + np.exp(-z))'''
 
     def forward_pass(self, X: np.ndarray):
         return 1 / (1 + np.exp(-X))
@@ -269,6 +273,7 @@ class Sigmoid(Nonlinearity):
 
 
 class SoftMax(Nonlinearity):
+    '''Applies softmax to the inputs. Do not use in with categorical cross entropy, which implicitly includes this.'''
 
     def forward_pass(self, X: np.ndarray):
         return np.exp(X) / np.sum(np.exp(X), axis=0)

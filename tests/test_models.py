@@ -3,7 +3,7 @@ from typing import Callable, Dict
 
 import numpy as np
 
-from neuroptica.components.component_layers import MZILayer, PhaseShifterLayer
+from neuroptica.component_layers import MZILayer, PhaseShifterLayer
 from neuroptica.layers import Activation, ClementsLayer, OpticalMeshNetworkLayer
 from neuroptica.models import Sequential
 from neuroptica.nonlinearities import Abs, AbsSquared, LinearMask

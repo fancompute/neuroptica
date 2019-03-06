@@ -1,38 +1,50 @@
+'''The componet_layers submodule contains functionality for assembling optical components on a simulated chip and
+computing their transfer operations. A ComponentLayer represents a physical "column" of optical components which
+acts on an input in parallel. ComponentLayers can be assembled into an OpticalMesh or put into a NetworkLayer.'''
+
 from functools import reduce
 from typing import Callable, Dict, Iterable, List, Type
 
 import numpy as np
 from numba import jit, prange
 
-from neuroptica.components.components import MZI, OpticalComponent, PhaseShifter, _get_mzi_partial_transfer_matrices
+from neuroptica.components import MZI, OpticalComponent, PhaseShifter, _get_mzi_partial_transfer_matrices
 from neuroptica.settings import NP_COMPLEX
 
 
 class ComponentLayer:
-    '''
-    Base class for a physical column of optical components
-    '''
+    '''Base class for a single physical column of optical components which acts on inputs in parallel.'''
 
     def __init__(self, N: int, components: List[Type[OpticalComponent]]):
+        '''
+        Initialize the ComponentLayer
+        :param int N: number of waveguides in the ComponentLayer
+        :param list[OpticalComponent] components: list of
+        '''
         self.N = N
         self.components = components
 
     def __iter__(self) -> Iterable[Type[OpticalComponent]]:
+        '''Iterate over the optical components in the ComponentLayer'''
         yield from self.components
 
     def all_tunable_params(self) -> Iterable[float]:
-        raise NotImplementedError
+        '''Enumerate all tunable parameters of the ComponentLayer; should be overwritten.'''
+        raise NotImplementedError("all_tunable_params must be extended for child classes!")
 
     def get_transfer_matrix(self) -> np.ndarray:
+        '''Enumerate all tunable parameters of the ComponentLayer; should be overwritten.'''
         raise NotImplementedError("get_transfer_matrix() must be extended for child classes!")
 
 
 class MZILayer(ComponentLayer):
-    '''
-    Represents a physical column of MZI's attached to an ensemble of waveguides
-    '''
+    '''Represents a physical column of MZI's attached to an ensemble of waveguides'''
 
     def __init__(self, N: int, mzis: List[MZI]):
+        '''
+        :param N: number of waveguides in the system the MZI layer is embedded
+        :param mzis: list of MZIs in the column (can be less than N)
+        '''
         super().__init__(N, mzis)
         self.mzis = mzis
 
@@ -46,8 +58,13 @@ class MZILayer(ComponentLayer):
 
     @classmethod
     def from_waveguide_indices(cls, N: int, waveguide_indices: List[int]):
-        '''Create an MZI layer from a list of an even number of input/output indices. Each pair of waveguides in the
-        iteration order will be assigned to an MZI'''
+        '''
+        Create an MZI layer from a list of an even number of input/output indices. Each pair of waveguides in the
+        iteration order will be assigned to an MZI
+        :param N: size of MZILayer
+        :param waveguide_indices: list of waveguides the layer attaches to
+        :return: MZILayer class instance with size N and MZIs attached to waveguide_indices
+        '''
         assert len(waveguide_indices) % 2 == 0 and len(waveguide_indices) <= N and \
                len(np.unique(waveguide_indices)) == len(waveguide_indices), \
             "Waveguide must have an even number <= N of indices which are all unique"
@@ -58,7 +75,11 @@ class MZILayer(ComponentLayer):
 
     @staticmethod
     def verify_inputs(N: int, mzis: List[MZI]):
-        '''Checks that the input MZIs are valid'''
+        '''
+        Checks that the input MZIs are valid
+        :param N: size of MZILayer
+        :param mzis: list of MZIs
+        '''
         assert len(mzis) <= N // 2, "Too many MZIs for layer with {} waveguides".format(N)
         input_ports = np.array([[mzi.m, mzi.n] for mzi in mzis]).flatten()
         assert len(np.unique(input_ports)) == len(input_ports), "MZIs share duplicate input ports!"
@@ -75,28 +96,25 @@ class MZILayer(ComponentLayer):
         return T
 
     def get_partial_transfer_matrices(self, backward=False, cumulative=True, add_uncertainties=False) -> np.ndarray:
-        '''Return a list of 4 partial transfer matrices for the entire MZI layer corresponding to (1) after first BS in
+        '''
+        Return a list of 4 partial transfer matrices for the entire MZI layer corresponding to (1) after first BS in
         each MZI, (2) after theta shifter, (3) after second BS, and (4) after phi shifter. Order is reversed in the
-        backwards case'''
+        backwards case
+        :param backward: whether to compute the backward partial transfer matrices
+        :param cumulative: if true, each partial transfer matrix represents the total transfer matrix up to that point
+        in the device
+        :param add_uncertainties: whether to include uncertainties in transfer matrix computation
+        :return: numpy array of partial transfer matrices
+        '''
 
         Ttotal = np.eye(self.N, dtype=NP_COMPLEX)
 
         partial_transfer_matrices = []
 
         # Compute the (non-cumulative) partial transfer matrices for each MZI
-
-        # if not add_uncertainties:
-        #     thetaphis = [(mzi.theta, mzi.phi) for mzi in self.mzis]
-        #     all_mzi_partials = self._get_all_mzi_partials(thetaphis, backward=backward, cumulative=False)
-        # else:
-
         all_mzi_partials = [mzi.get_partial_transfer_matrices
                             (backward=backward, cumulative=False, add_uncertainties=add_uncertainties)
                             for mzi in self.mzis]
-
-        # mzi_mn = [(mzi.m, mzi.n) for mzi in self.mzis]
-        # return self._get_partial_transfer_matrices(self.N, np.array(all_mzi_partials), np.array(mzi_mn),
-        #                                            np.eye(self.N, dtype=NP_COMPLEX), cumulative=cumulative)
 
         for depth in range(len(all_mzi_partials[0])):
             # Iterate over each sub-component at a given depth
@@ -118,19 +136,19 @@ class MZILayer(ComponentLayer):
 
         return np.array(partial_transfer_matrices)
 
-    def get_partial_transfer_vectors(self, backward=False, cumulative=True,
-                                     add_uncertainties=False) -> np.ndarray:
+    def get_partial_transfer_vectors(self, backward=False, cumulative=True, add_uncertainties=False) -> np.ndarray:
+        '''
+
+        :param backward:
+        :param cumulative:
+        :param add_uncertainties:
+        :return:
+        '''
         Ttot = np.array([np.ones((self.N,), dtype=NP_COMPLEX), np.zeros((self.N,), dtype=NP_COMPLEX)])
         partial_transfer_vectors = []
         inds_mn = np.arange(self.N)
 
         # Compute the (non-cumulative) partial transfer matrices for each MZI
-
-        # if not add_uncertainties:
-        #     thetaphis = [(mzi.theta, mzi.phi) for mzi in self.mzis]
-        #     all_mzi_partials = self._get_all_mzi_partials(thetaphis, backward=backward, cumulative=False)
-        # else:
-
         all_mzi_partials = [mzi.get_partial_transfer_matrices
                             (backward=backward, cumulative=False, add_uncertainties=add_uncertainties)
                             for mzi in self.mzis]
@@ -145,13 +163,6 @@ class MZILayer(ComponentLayer):
                 inds_mn[m] = n
                 inds_mn[n] = m
 
-                # if cumulative:
-                #   t00, t01, t10, t11 = Tvec[0][m], Tvec[1][n], Tvec[1][m], Tvec[0][n]
-                #   Tvec[0][m] = t00*U[0, 0] + t01*U[1, 0]
-                #   Tvec[1][m] = t10*U[0, 0] + t11*U[1, 0]
-                #   Tvec[1][n] = t00*U[0, 1] + t01*U[1, 1]
-                #   Tvec[0][n] = t10*U[0, 1] + t11*U[1, 1]
-                # else:
                 Tvec[0][m] = U[0, 0]
                 Tvec[1][n] = U[0, 1]
                 Tvec[1][m] = U[1, 0]
@@ -170,6 +181,7 @@ class MZILayer(ComponentLayer):
     @staticmethod
     @jit(nopython=True, nogil=True, parallel=True)
     def _get_all_mzi_partials(thetaphis: List, backward=False, cumulative=True) -> np.ndarray:
+        '''Deprecated method for accelerating partial transfer matrix computation with numba'''
         all_partials = np.empty((len(thetaphis), 4, 2, 2), NP_COMPLEX)
         for i in prange(len(thetaphis)):
             theta, phi = thetaphis[i]
@@ -179,6 +191,7 @@ class MZILayer(ComponentLayer):
     @staticmethod
     @jit(nopython=True, nogil=True, parallel=True)
     def _get_partial_transfer_matrices(N, all_mzi_partials, mzi_mn, T_base, cumulative=True) -> np.ndarray:
+        '''Deprecated method for accelerating partial transfer matrix computation with numba'''
         Ttotal = T_base.copy()
 
         partial_transfer_matrices = np.empty((len(all_mzi_partials[0]), N, N), NP_COMPLEX)
@@ -205,13 +218,14 @@ class MZILayer(ComponentLayer):
 
 
 class PhaseShifterLayer(ComponentLayer):
-    '''
-    Represents a column of N single-mode phase shifters
-    '''
+    '''Represents a column of N single-mode phase shifters'''
 
     def __init__(self, N: int, phase_shifters: List[PhaseShifter] = None):
+        '''
+        :param N: number of waveguides the column is embedded in
+        :param phase_shifters: list of phase shifters in the column (can be less than N)
+        '''
         super().__init__(N, phase_shifters)
-
         if phase_shifters is None:
             phase_shifters = [PhaseShifter(m) for m in range(N)]
         self.phase_shifters = phase_shifters
@@ -232,11 +246,14 @@ class PhaseShifterLayer(ComponentLayer):
 
 
 class OpticalMesh:
-    '''
-    Represents a mesh consisting of several layers of optical components
-    '''
+    '''Represents an optical "mesh" consisting of several layers of optical components, e.g. a rectangular MZI mesh'''
 
     def __init__(self, N: int, layers: List[Type[ComponentLayer]]):
+        '''
+        Initialize the OpticalMesh
+        :param N: number of waveguides in the system the mesh is embedded in
+        :param layers: list of ComponentLayers that the mesh contains (enumerates the columns of components)
+        '''
         self.N = N
         self.layers = layers
         self.forward_fields = []
@@ -261,9 +278,14 @@ class OpticalMesh:
     def get_transfer_matrix(self) -> np.ndarray:
         return reduce(np.dot, [layer.get_transfer_matrix() for layer in reversed(self.layers)])
 
-    # TODO
     def get_partial_transfer_matrices(self, backward=False, cumulative=True) -> List[np.ndarray]:
-        '''Return the cumulative transfer matrices following each layer in the mesh'''
+        '''
+        Return the partial transfer matrices for the optical mesh after each column of components
+        :param backward: whether to compute the backward partial transfer matrices
+        :param cumulative: if true, each partial transfer matrix represents the total transfer matrix up to that point
+        in the device
+        :return: list of partial transfer matrices
+        '''
         partial_transfer_matrices = []
         Ttotal = np.eye(self.N, dtype=NP_COMPLEX)
         layers = reversed(self.layers) if backward else self.layers
@@ -271,15 +293,21 @@ class OpticalMesh:
             T = layer.get_transfer_matrix()
             if backward:
                 T = T.T
-            Ttotal = np.dot(T, Ttotal)  # needs to be (T . Ttotal), left multiply
-            partial_transfer_matrices.append(Ttotal)
+            if cumulative:
+                Ttotal = np.dot(T, Ttotal)  # needs to be (T . Ttotal), left multiply
+                partial_transfer_matrices.append(Ttotal)
+            else:
+                partial_transfer_matrices.append(T)
         return partial_transfer_matrices
 
     def compute_phase_shifter_fields(self, X: np.ndarray, align="right", use_partial_vectors=False, include_bs=False) -> \
             List[List[np.ndarray]]:
         '''
-        Compute the foward-pass field at the left/right of each phase shifter in the mesh
+        Compute the forward-propagating electric fields at the left/right of each phase shifter in the mesh
         :param X: input field to the mesh
+        :param align: whether to align the fields at the beginning or end of each column
+        :use_partial_vectors: can speed up the computation if set to True
+        :include_bs: if true, also compute the phase shifter fields before/after each beamsplitter in the mesh
         :return: a list of (list of field values to the left/right of each phase shifter in a layer) for each layer
         '''
 
@@ -344,8 +372,9 @@ class OpticalMesh:
     def compute_adjoint_phase_shifter_fields(self, delta: np.ndarray, align="right",
                                              use_partial_vectors=False) -> List[List[np.ndarray]]:
         '''
-        Compute the backward-pass field at the left/right of each phase shifter in the mesh
+        Compute the backward propagating (adjoint) electric fields at the left/right of each phase shifter in the mesh
         :param delta: input adjoint field to the mesh
+        :param align: whether to align the fields at the beginning or end of each column
         :return: a list of (list of field values to the left/right of each phase shifter in a layer) for each layer
         The ordering of the list is the opposite as in compute_phase_shifter_fields()
         '''
@@ -408,6 +437,20 @@ class OpticalMesh:
                          update_fn: Callable,  # update function takes a float and possibly other args and returns float
                          accumulator: Callable[[np.ndarray], float] = np.mean,
                          dry_run=False, cache_fields=False, use_partial_vectors=False):
+        '''
+        Compute the loss gradient as described in Hughes, et al (2018), "Training of photonic neural networks through
+        in situ backpropagation and gradient measurement" and adjust the phase shifting parameters accordingly
+        :param forward_field: forward-propagating input electric field at the beginning of the optical mesh
+        :param adjoint_field: backward-propagating output electric field at the end of the optical mesh
+        :param update_fn: a float=>float function to compute how to update parameters given a gradient
+        :param accumulator: an array=>float function to compute how to compute a gradient from a batch of gradients;
+        np.mean is used by default
+        :param dry_run: if True, parameters will not be adjusted and a dictionary of parameter gradients for each
+        ComponentLayer will be returned instead
+        :param cache_fields: if True, forward and adjoint fields within the mesh will be cached
+        :param use_partial_vectors: if True, uses partial vectors method to speed up transfer matrix computation
+        :return: None, or (if dry_run==True) a dictionary of parameter gradients for each ComponentLayer
+        '''
 
         if cache_fields:
             forward_fields = self.forward_fields
@@ -457,6 +500,14 @@ class OpticalMesh:
     def compute_gradients(self, forward_field: np.ndarray, adjoint_field: np.ndarray,
                           cache_fields=False, use_partial_vectors=False) \
             -> Dict[Type[OpticalComponent], np.ndarray]:
+        '''
+        Compute the gradients for each optical component within the mesh, without adjusting the parameters
+        :param forward_field: forward-propagating input electric field at the beginning of the optical mesh
+        :param adjoint_field: backward-propagating output electric field at the end of the optical mesh
+        :param cache_fields: if True, forward and adjoint fields within the mesh will be cached
+        :param use_partial_vectors: if True, uses partial vectors method to speed up transfer matrix computation
+        :return:
+        '''
 
         if cache_fields:
             forward_fields = self.forward_fields

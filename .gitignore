@@ -1,5 +1,9 @@
 # Standard stuff ===============================================================
 
+# Documentation pages
+*.html
+*.css
+
 # Visual studio / PyCharm stuff
 .idea
 .vs

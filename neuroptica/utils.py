@@ -1,3 +1,5 @@
+'''This module contains a collection of miscellaneous utility functions.'''
+
 import numpy as np
 from tqdm import tqdm, tqdm_notebook
 
