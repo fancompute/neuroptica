@@ -1,0 +1,9 @@
+version: 2
+
+python:
+  version: 3.6
+  path: .
+
+sphinkx:
+  builder: html
+  configuration: docs/conf.py

@@ -112,7 +112,7 @@ class TestNonlinearities(NeuropticaTest):
                     # Compute the backpropagated signals for the model
                     gradients = model.backward_pass(d_loss)
 
-                    TestModels.verify_model_gradients(model, X, Y, loss.L, gradients, epsilon=1e-6)
+                    TestModels.verify_model_gradients(model, X, Y, loss.L, gradients, epsilon=1e-5, decimal=3)
 
 
 if __name__ == "__main__":
