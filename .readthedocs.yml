@@ -6,6 +6,6 @@ python:
     - method: pip
       path: .
 
-sphinkx:
+sphinx:
   builder: html
   configuration: docs/conf.py
