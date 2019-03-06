@@ -47,7 +47,7 @@ class TestModels(NeuropticaTest):
                                 L_phi_plus_dphi = loss_fn(model.forward_pass(X), Y)[i]
                                 phase_shifter.phi -= delta_phi  # revert change
 
-                                dL_dphi_num = (L_phi_plus_dphi - L_phi) / (delta_phi + 1e-12)
+                                dL_dphi_num = (L_phi_plus_dphi - L_phi) / (delta_phi + 1e-15)
 
                                 np.testing.assert_almost_equal(dL_dphi, dL_dphi_num, decimal=decimal)
 
@@ -69,7 +69,7 @@ class TestModels(NeuropticaTest):
                                 L_phi_plus_dphi = loss_fn(model.forward_pass(X), Y)[i]
                                 mzi.phi -= delta_phi  # revert change
 
-                                dL_dphi_num = (L_phi_plus_dphi - L_phi) / (delta_phi + 1e-12)
+                                dL_dphi_num = (L_phi_plus_dphi - L_phi) / (delta_phi + 1e-15)
 
                                 np.testing.assert_almost_equal(dL_dphi, dL_dphi_num, decimal=decimal)
 

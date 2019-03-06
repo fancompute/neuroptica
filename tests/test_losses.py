@@ -14,7 +14,7 @@ class TestLosses(NeuropticaTest):
 
     def test_loss_gradients(self):
 
-        N = 10
+        N = 7
         losses = [MeanSquaredError, CategoricalCrossEntropy]
 
         for loss in losses:
@@ -31,9 +31,10 @@ class TestLosses(NeuropticaTest):
             Y_all[X_max, np.arange(n_samples)] = 1.0
 
             # Make a single-layer model
-            model = Sequential([ClementsLayer(N),
-                                Activation(Abs(N))
-                                ])
+            model = Sequential([
+                ClementsLayer(N),
+                Activation(AbsSquared(N))
+            ])
 
             for X, Y in Optimizer.make_batches(X_all, Y_all, batch_size):
                 # Propagate the data forward
@@ -43,7 +44,7 @@ class TestLosses(NeuropticaTest):
                 # Compute the backpropagated signals for the model
                 gradients = model.backward_pass(d_loss)
 
-                TestModels.verify_model_gradients(model, X, Y, loss.L, gradients, epsilon=1e-5)
+                TestModels.verify_model_gradients(model, X, Y, loss.L, gradients, epsilon=1e-6)
 
 
 if __name__ == "__main__":
