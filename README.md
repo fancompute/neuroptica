@@ -24,6 +24,8 @@ import sys
 sys.path.append('path/to/neuroptica')
 ``` 
 
+`neuroptica` requires Python >=3.6.
+
 
 ## Getting started
 
