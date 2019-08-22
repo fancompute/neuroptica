@@ -11,20 +11,12 @@ The easiest way to get started with `neuroptica` is to install directly from the
 pip install neuroptica
 ```
 
-Alternately, you can clone the repository source code and edit it as needed with 
+Alternately, you can clone the repository source code and edit it as needed with:
 
 ```
 git clone https://github.com/fancompute/neuroptica.git
+pip install -e neuroptica
 ```
-
-and in your program or notebook, add
-
-```python
-import sys
-sys.path.append('path/to/neuroptica')
-``` 
-
-`neuroptica` requires Python >=3.6.
 
 
 ## Getting started
