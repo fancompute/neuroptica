@@ -41,7 +41,7 @@ For an overview of `neuroptica`, read the [documentation](https://neuroptica.rea
   publisher = {GitHub},
   journal = {GitHub repository},
   howpublished = {\url{https://github.com/fancompute/neuroptica}},
-  commit = {4f57d6a0e4c030202a07a60bc1bb1ed1544bf679}
+  commit = {06484f698ee038eeb128cdfbd4c59a7e96185bb4}
 }
 ```
 
