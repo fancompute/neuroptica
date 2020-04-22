@@ -35,7 +35,7 @@ For an overview of `neuroptica`, read the [documentation](https://neuroptica.rea
 
 ```
 @misc{Bartlett2019Neuroptica,
-  author = {Bartlett, Ben and Minkov, Momchil and Hughes, Tyler and Williamson, Ian A.D.},
+  author = {Ben Bartlett and Momchil Minkov and Tyler Hughes and Ian A. D. Williamson},
   title = {Neuroptica: Flexible simulation package for optical neural networks},
   year = {2019},
   publisher = {GitHub},
@@ -48,11 +48,12 @@ For an overview of `neuroptica`, read the [documentation](https://neuroptica.rea
 
 ```
 @article{Williamson2019Reprogrammable, 
-  author={I. A. D. {Williamson} and T. W. {Hughes} and M. {Minkov} and B. {Bartlett} and S. {Pai} and S. {Fan}}, 
+  author={I. A. D. Williamson and T. W. Hughes and M. Minkov and B. Bartlett and S. Pai and S. Fan}, 
   journal={IEEE Journal of Selected Topics in Quantum Electronics}, 
   title={Reprogrammable Electro-Optic Nonlinear Activation Functions for Optical Neural Networks},
   year={2020}, 
   volume={26}, 
   number={1}, 
-  pages={1-12},}
+  pages={1-12}
+}
 ```
